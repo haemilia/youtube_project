@@ -4,25 +4,12 @@ import torch
 import numpy as np
 from pathlib import Path
 import useful as use
-from Dataset import concat_vids
 
 
 def get_image_from_dir(image_dir):
     image_paths = list(image_dir.glob("*.jpg"))
     image_dict = {img_path.stem: img_path for img_path in image_paths}
     return image_dict
-
-def get_title_from_dfs(data_dir:Path):
-    # Get popular and unpopular video info dfs
-    popular_vids_paths = use.get_df_paths(data_dir / "popular_vids")
-    unpopular_vids_paths = use.get_df_paths(data_dir / "more_vids")
-    # construct and concatenate all video info dfs
-    popular_vids = concat_vids(popular_vids_paths, 0, reset_index=True)
-    unpopular_vids = concat_vids(unpopular_vids_paths, 0, reset_index=True)
-    # Extract video ids and titles
-    popular_id_title = popular_vids[["id", "title"]]
-    unpopular_id_title = unpopular_vids[["id", "title"]]
-    return popular_id_title, unpopular_id_title
 
 def set_device() -> torch.device:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
