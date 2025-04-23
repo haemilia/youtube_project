@@ -4,3 +4,5 @@ LOG/*.hwp
 LOG/*.log
 .obsidian
 **/__pycache__/
+.venv
+.venv/**
