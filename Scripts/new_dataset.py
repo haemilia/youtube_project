@@ -503,7 +503,3 @@ DATA_PATH = Path(priv["DATA_PATH"])
 
 popular_df_raw = pd.read_pickle(DATA_PATH / "temp/raw/popular_raw.pkl")
 unpopular_df_raw = pd.read_pickle(DATA_PATH/"temp/raw/unpopular_raw.pkl")
-
-popular_id_title = popular_df_raw[["id", "title"]]
-unpopular_id_title = unpopular_df_raw[["id", "title"]]
-len(unpopular_df_raw)

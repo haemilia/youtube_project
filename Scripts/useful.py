@@ -39,7 +39,9 @@ def create_directory_if_not_exists(directory_path:str|Path) -> None:
         directory_path: The path to the directory to create.
     """
     path:Path = Path(directory_path)
-    path.mkdir(parents=True, exist_ok=True)
+    if not path.exists():
+        path.mkdir(parents=True, exist_ok=True)
+    
 
 ## Report Progress (on CLI)
 def report_progress(progress_task:str, progress_path:str|Path)->None:
