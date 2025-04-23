@@ -1,0 +1,6 @@
+private.json
+LOG/*.docx
+LOG/*.hwp
+LOG/*.log
+.obsidian
+**/__pycache__/
