@@ -34,14 +34,29 @@ def feature_from_image(image_path:Path, processor:CLIPProcessor, model:CLIPModel
     features = image_features.cpu().numpy().squeeze()
     return features
     
-def feature_from_text(text: str, processor:CLIPProcessor, model:CLIPModel, device:torch.device):
-    inputs = processor(text=[text], return_tensors="pt", padding=True).to(device)
+def feature_from_text(text: str, processor, model, device):
+    # Check token length before encoding
+    tokens = processor.tokenizer(text, return_tensors="pt")
+    token_count = tokens["input_ids"].shape[-1]
+    
+    if token_count > 77:
+        print(f"[Warning] Truncating text: '{text[:50]}...' ({token_count} tokens)")
+
+    # Tokenize with truncation enabled
+    inputs = processor(
+        text=[text],
+        return_tensors="pt",
+        padding=True,
+        truncation=True,  # Ensure no crash
+        max_length=77     # Enforce CLIP's hard limit
+    ).to(device)
 
     with torch.no_grad():
         text_features = model.get_text_features(**inputs)
 
     features = text_features.cpu().numpy().squeeze()
     return features
+
     
 def main():
     #### Private config
