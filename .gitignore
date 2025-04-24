@@ -8,3 +8,5 @@ LOG/*.log
 .venv/**
 temp
 temp/**
+**/cookies.txt
+cookies.txt
