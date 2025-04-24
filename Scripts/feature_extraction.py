@@ -142,17 +142,25 @@ def feature_from_video(video_path:Path, processor: AutoProcessor, model: AutoMod
         if not sampled_frames:
             print("Error: No frames were successfully sampled from the video.")
             return None
+        try:
+            # Process the sampled frames
+            inputs = processor(videos=sampled_frames, return_tensors="pt")
+        except Exception as e:
+            print("Error while processing")
+            raise e
+        
+        try:
+            # Get the video features
+            with torch.no_grad():
+                video_features = model.get_video_features(**inputs)
+        except Exception as e:
+            print("Error while getting features")
+            raise e
 
-        # Process the sampled frames
-        inputs = processor(videos=sampled_frames, return_tensors="pt")
-
-        # Get the video features
-        with torch.no_grad():
-            video_features = model.get_video_features(**inputs)
-
-        # Return the video features as a numpy array
-        video_features:np.ndarray = video_features.cpu().numpy()
-        return video_features
+        # The output of get_video_features is likely a tensor of shape (batch_size, feature_dimension)
+        # Since we are processing one video at a time, batch_size will be 1.
+        # We want to extract the feature vector and convert it to a NumPy array.
+        return video_features.squeeze(0).cpu().numpy()
 
     except Exception as e:
         print(f"An error occurred: {e}")
