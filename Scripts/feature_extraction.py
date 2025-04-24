@@ -1,5 +1,6 @@
-from transformers import CLIPProcessor, CLIPModel
+from transformers import CLIPProcessor, CLIPModel, AutoProcessor, AutoModel
 from PIL import Image
+import cv2
 import torch
 import numpy as np
 from pathlib import Path
@@ -19,22 +20,57 @@ def load_processor(processor_name:str="openai/clip-vit-base-patch32")->CLIPProce
     processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
     return processor
 
+def load_video_processor(hf_token:str, processor_name:str = "microsoft/xclip-base-patch32") -> AutoProcessor:
+    processor = AutoProcessor.from_pretrained("microsoft/xclip-base-patch32", token=hf_token)
+    return processor
+
 def load_model(device, model_name="openai/clip-vit-base-patch32")->CLIPModel:
     model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(device)
     model.eval()
     return model
 
-def feature_from_image(image_path:Path, processor:CLIPProcessor, model:CLIPModel, device:torch.device):
+def load_video_model(device, hf_token:str, model_name:str = "microsoft/xclip-base-patch32") -> AutoModel:
+    model = AutoModel.from_pretrained("microsoft/xclip-base-patch32", token=hf_token)
+    model.eval()
+    return model
+
+def feature_from_image(image_path:Path, processor:CLIPProcessor, model:CLIPModel, device:torch.device)->np.ndarray:
+    """
+    Extracts semantic features from thumbnail image using the CLIP model,
+    following the Hugging Face documentation example.
+
+    Args:
+        image_path (str): The path to the thumbnail image file.
+        processor (CLIPProcessor): The pre-trained CLIP processor.
+        model (CLIPModel): The pre-trained CLIP model.
+
+    Returns:
+        features: A numpy array representing the semantic feature vector of the video.
+                       Returns None if there's an issue processing the video.
+    """
     image = Image.open(image_path).convert("RGB")
     inputs = processor(images=image, return_tensors="pt").to(device)
 
     with torch.no_grad():
         image_features = model.get_image_features(**inputs)
     
-    features = image_features.cpu().numpy().squeeze()
+    features:np.ndarray = image_features.cpu().numpy().squeeze()
     return features
     
-def feature_from_text(text: str, processor, model, device):
+def feature_from_text(text: str, processor, model, device)->np.ndarray:
+    """
+    Extracts semantic features from title text using the CLIP model,
+    following the Hugging Face documentation example.
+
+    Args:
+        text (str): The title text.
+        processor (CLIPProcessor): The pre-trained CLIP processor.
+        model (CLIPModel): The pre-trained CLIP model.
+
+    Returns:
+        features: A numpy array representing the semantic feature vector of the video.
+                       Returns None if there's an issue processing the video.
+    """
     # Check token length before encoding
     tokens = processor.tokenizer(text, return_tensors="pt")
     token_count = tokens["input_ids"].shape[-1]
@@ -54,8 +90,73 @@ def feature_from_text(text: str, processor, model, device):
     with torch.no_grad():
         text_features = model.get_text_features(**inputs)
 
-    features = text_features.cpu().numpy().squeeze()
+    features:np.ndarray = text_features.cpu().numpy().squeeze()
     return features
+
+def feature_from_video(video_path:Path, processor: AutoProcessor, model: AutoModel, device:torch.device) -> np.ndarray|None:
+    """
+    Extracts semantic features from a video using the XCLIP model,
+    following the Hugging Face documentation example.
+
+    Args:
+        video_path (str): The path to the video file.
+        processor (AutoProcessor): The pre-trained XCLIP processor.
+        model (AutoModel): The pre-trained XCLIP model.
+
+    Returns:
+        video_features: A numpy array representing the semantic feature vector of the video.
+                       Returns None if there's an issue processing the video.
+    """
+    try:
+        # Open the video file
+        cap = cv2.VideoCapture(video_path)
+        if not cap.isOpened():
+            print(f"Error: Could not open video file at {video_path}")
+            return None
+
+        # Get video properties
+        frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        total_duration_seconds = frame_count / fps if fps > 0 else 0
+
+        # Define the number of frames to sample
+        num_frames_to_sample = 8
+        if frame_count < num_frames_to_sample:
+            indices = np.linspace(0, frame_count - 1, frame_count, dtype=int)
+        else:
+            indices = np.linspace(0, frame_count - 1, num_frames_to_sample, dtype=int)
+
+        sampled_frames = []
+        for i in indices:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, i)
+            ret, frame = cap.read()
+            if ret:
+                # Convert frame to RGB
+                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                sampled_frames.append(frame_rgb)
+            else:
+                print(f"Warning: Could not read frame at index {i}")
+
+        cap.release()
+
+        if not sampled_frames:
+            print("Error: No frames were successfully sampled from the video.")
+            return None
+
+        # Process the sampled frames
+        inputs = processor(videos=sampled_frames, return_tensors="pt")
+
+        # Get the video features
+        with torch.no_grad():
+            video_features = model.get_video_features(**inputs)
+
+        # Return the video features as a numpy array
+        video_features:np.ndarray = video_features.cpu().numpy()
+        return video_features
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return None
 
     
 def main():

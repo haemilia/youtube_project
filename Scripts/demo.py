@@ -1,8 +1,6 @@
 from yt_dlp import YoutubeDL
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
-from IPython.display import HTML
-import base64
 
 def download_video_with_id(video_id:str, output_path:Path|str) -> Path|None:
     """
