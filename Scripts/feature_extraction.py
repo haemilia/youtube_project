@@ -145,6 +145,7 @@ def feature_from_video(video_path:Path, processor: AutoProcessor, model: AutoMod
         
         # Process the sampled frames
         inputs = processor(videos=sampled_frames, return_tensors="pt")
+        print("Shape of inputs['pixel_values']:", inputs['pixel_values'].shape)
 
     
         # Get the video features

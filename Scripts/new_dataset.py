@@ -421,7 +421,7 @@ def get_thumbnails(popular_df_raw, unpopular_df_raw, thumbnails_storage_dir):
             response.raise_for_status()  # Raise an exception for bad status codes
 
             use.create_directory_if_not_exists(save_folder) # Create the folder if it doesn't exist
-
+ 
             filename = video_id + ".jpg"
             filepath = save_folder / filename
 
