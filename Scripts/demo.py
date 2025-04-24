@@ -1,6 +1,7 @@
 from yt_dlp import YoutubeDL
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
+import pandas as pd
 
 def download_video_with_id(video_id:str, output_path:Path|str) -> Path|None:
     """
@@ -64,3 +65,15 @@ def extract_video_id(url:str)->str|None:
     except:
         return None
     return None
+def prepare_for_youtube_api_request(youtube_api_key):
+    from googleapiclient.discovery import build
+    # Set up Youtube Data API access
+    YOUTUBE_API_SERVICE_NAME = "youtube"
+    YOUTUBE_API_VERSION = "v3"
+    youtube = build(YOUTUBE_API_SERVICE_NAME, YOUTUBE_API_VERSION, developerKey=youtube_api_key)
+    return youtube
+
+def get_tabular_video_info(video_id:str) -> pd.DataFrame:
+    pass
+def get_thumbnail_image(thumbnail_url:str) -> Path:
+    pass

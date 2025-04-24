@@ -6,3 +6,5 @@ LOG/*.log
 **/__pycache__/
 .venv
 .venv/**
+temp
+temp/**

@@ -93,7 +93,7 @@ def feature_from_text(text: str, processor, model, device)->np.ndarray:
     features:np.ndarray = text_features.cpu().numpy().squeeze()
     return features
 
-def feature_from_video(video_path:Path, processor: AutoProcessor, model: AutoModel, device:torch.device) -> np.ndarray|None:
+def feature_from_video(video_path:Path, processor: AutoProcessor, model: AutoModel, device:torch.device, num_of_frames:int=16) -> np.ndarray|None:
     """
     Extracts semantic features from a video using the XCLIP model,
     following the Hugging Face documentation example.
@@ -120,7 +120,7 @@ def feature_from_video(video_path:Path, processor: AutoProcessor, model: AutoMod
         total_duration_seconds = frame_count / fps if fps > 0 else 0
 
         # Define the number of frames to sample
-        num_frames_to_sample = 8
+        num_frames_to_sample = num_of_frames
         if frame_count < num_frames_to_sample:
             indices = np.linspace(0, frame_count - 1, frame_count, dtype=int)
         else:
