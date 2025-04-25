@@ -9,7 +9,6 @@ DATA_PATH = Path(priv["DATA_PATH"])
 hf_token = priv["HF_API_KEY"]
 features_dir = DATA_PATH / "dataset"
 
-popular_df_raw = pd.read_pickle(DATA_PATH / "temp/raw/popular_raw.pkl")
 unpopular_df_raw = pd.read_pickle(DATA_PATH/"temp/raw/unpopular_raw.pkl")
 
 from demo import download_video_with_id
@@ -77,10 +76,6 @@ if (destination_filename).exists():
 else:
     video_l1_dict = {}
 
-# Ensure the temp video directory exists
-output_path = Path("../temp")
-use.create_directory_if_not_exists(output_path)
-
 # Save progress
 progress_save_path = DATA_PATH / "temp/unpop_l1_progress.txt"
 
@@ -93,6 +88,7 @@ else:
 error_message = "Completed without catching error"
 ids_to_query = unpopular_id[start_from:]
 total = len(ids_to_query)
+
 # Define the full path to the log file on the shared drive
 shared_drive_path = DATA_PATH 
 log_file_path = shared_drive_path / "l1_output.log"
