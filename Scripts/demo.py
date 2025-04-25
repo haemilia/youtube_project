@@ -1,5 +1,6 @@
 from yt_dlp import YoutubeDL
 from pathlib import Path
+import urllib
 from urllib.parse import urlparse, parse_qs
 import pandas as pd
 import useful as use
@@ -38,8 +39,10 @@ def download_video_with_id(video_id:str, output_path:Path|str, cookie_path:Path|
             else:
                 print(f"Failed to download {video_id}")
                 return None
-        except DownloadError as e:
-            if "HTTP Error 403" in str(e) or "HTTP Error 401" in str(e) or "Unable to extract info" in str(e) and "needs cookie" in str(e).lower():
+        except urllib.error.HTTPError as e:
+            if "private video" in str(e).lower():
+                print("Error: API access failed, due to video being private")
+            elif "HTTP Error 403" in str(e) or "HTTP Error 401" in str(e) or "Unable to extract info" in str(e) and "needs cookie" in str(e).lower():
                 print("Error: API access failed, likely due to missing or invalid cookies.")
                 raise e
                 # You can add your logic here to handle the missing cookie situation,
@@ -49,6 +52,8 @@ def download_video_with_id(video_id:str, output_path:Path|str, cookie_path:Path|
                 # Handle other potential download errors
         except Exception as e:
             print(f"A general error occurred: {e}")
+            if "bot" in str(e):
+                raise e
     return video_filepath
 
 def extract_video_id(url:str)->str|None:

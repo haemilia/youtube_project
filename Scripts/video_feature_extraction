@@ -1,0 +1,65 @@
+from pathlib import Path
+import useful as use
+import pandas as pd
+import numpy as np
+priv = use.get_priv()
+global DATA_PATH
+DATA_PATH = Path(priv["DATA_PATH"])
+hf_token = priv["HF_API_KEY"]
+features_dir = DATA_PATH / "dataset"
+
+popular_df_raw = pd.read_pickle(DATA_PATH / "temp/raw/popular_raw.pkl")
+unpopular_df_raw = pd.read_pickle(DATA_PATH/"temp/raw/unpopular_raw.pkl")
+
+from demo import download_video_with_id
+import feature_extraction as fe
+import pickle
+
+# Your DataFrame of video IDs
+unpopular_id = unpopular_df_raw["id"]
+
+# Prepare model and preprocessor
+device = fe.set_device()
+vid_processor = fe.load_video_processor(hf_token)
+vid_model = fe.load_video_model(device, hf_token)
+
+if (features_dir/"unpopular_video_vectors.pkl").exists():
+    with open(features_dir/"unpopular_video_vectors.pkl",'rb') as fr:
+        video_features_dict = pickle.load(fr)
+else:
+    video_features_dict = {}
+# Go through popular videos
+
+if (DATA_PATH / "temp/progress.txt").exists():
+    with open(DATA_PATH / "temp/progress.txt", "r") as fr:
+        start_from = int(fr.read())
+else:
+    start_from = 1225 + 159 + 128 + 1018
+total = len(unpopular_id[start_from:])
+for i, video_id in enumerate(unpopular_id[start_from:]):
+    print(f"{i+1} / {total}")
+    # download video in temp
+    temp_dir = Path("../temp")
+    use.create_directory_if_not_exists(temp_dir)
+    vid_path = download_video_with_id(video_id, temp_dir, cookie_path="../cookies.txt")
+
+    # extract features
+    print("Extracting feature vectors...")
+    video_features = fe.feature_from_video(vid_path,
+                                           processor=vid_processor,
+                                           model=vid_model,
+                                           device=device,
+                                        num_of_frames=8)
+    # store features
+    print("Storing feature vectors...")
+    video_features_dict[video_id] = video_features
+    with open(features_dir/"unpopular_video_vectors.pkl",'wb') as fw:
+        pickle.dump(video_features_dict, fw)
+    with open(DATA_PATH / "temp/colab_progress.txt", "w") as fw:
+        fw.write(str(start_from +i))
+
+    # delete video from temp
+    if vid_path is None:
+        vid_path = temp_dir / f"{video_id}.mp4"
+    vid_path.unlink(missing_ok=True)
+    print(f"Deleted {video_id}.mp4")
