@@ -34,32 +34,52 @@ if (DATA_PATH / "temp/progress.txt").exists():
     with open(DATA_PATH / "temp/progress.txt", "r") as fr:
         start_from = int(fr.read())
 else:
-    start_from = 1225 + 159 + 128 + 1018
+    start_from = 2863
 total = len(unpopular_id[start_from:])
-for i, video_id in enumerate(unpopular_id[start_from:]):
-    print(f"{i+1} / {total}")
-    # download video in temp
-    temp_dir = Path("../temp")
-    use.create_directory_if_not_exists(temp_dir)
-    vid_path = download_video_with_id(video_id, temp_dir, cookie_path="../cookies.txt")
+error_message = ""
+try:
+    for i, video_id in enumerate(unpopular_id[start_from:]):
+        print(f"{i+1} / {total}")
+        # download video in temp
+        temp_dir = Path("../temp")
+        use.create_directory_if_not_exists(temp_dir)
+        vid_path = download_video_with_id(video_id, temp_dir, cookie_path="../cookies.txt")
 
-    # extract features
-    print("Extracting feature vectors...")
-    video_features = fe.feature_from_video(vid_path,
-                                           processor=vid_processor,
-                                           model=vid_model,
-                                           device=device,
-                                        num_of_frames=8)
-    # store features
-    print("Storing feature vectors...")
-    video_features_dict[video_id] = video_features
-    with open(features_dir/"unpopular_video_vectors.pkl",'wb') as fw:
-        pickle.dump(video_features_dict, fw)
-    with open(DATA_PATH / "temp/colab_progress.txt", "w") as fw:
-        fw.write(str(start_from +i))
+        # extract features
+        print("Extracting feature vectors...")
+        video_features = fe.feature_from_video(vid_path,
+                                            processor=vid_processor,
+                                            model=vid_model,
+                                            device=device,
+                                            num_of_frames=8)
+        # store features
+        print("Storing feature vectors...")
+        video_features_dict[video_id] = video_features
+        with open(features_dir/"unpopular_video_vectors.pkl",'wb') as fw:
+            pickle.dump(video_features_dict, fw)
+        with open(DATA_PATH / "temp/progress.txt", "w") as fw:
+            fw.write(str(start_from +i))
 
-    # delete video from temp
-    if vid_path is None:
-        vid_path = temp_dir / f"{video_id}.mp4"
-    vid_path.unlink(missing_ok=True)
-    print(f"Deleted {video_id}.mp4")
+        # delete video from temp
+        if vid_path is None:
+            vid_path = temp_dir / f"{video_id}.mp4"
+        vid_path.unlink(missing_ok=True)
+        print(f"Deleted {video_id}.mp4")
+except Exception as e:
+    error_message = str(e)
+
+from datetime import datetime
+
+def write_termination_file_pathlib(reason, shared_drive_path_str):
+    shared_drive_path = Path(shared_drive_path_str)
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    filename = f"URGENT_termination_status_{timestamp}.txt"
+    full_path = shared_drive_path / filename
+
+    try:
+        full_path.write_text(f"Loop terminated at: {timestamp}\nReason: {reason}\n")
+        print(f"Termination status written to: {full_path}")
+    except Exception as e:
+        print(f"Error writing to shared drive: {e}")
+
+write_termination_file_pathlib(error_message, DATA_PATH)

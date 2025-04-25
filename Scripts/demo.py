@@ -54,6 +54,8 @@ def download_video_with_id(video_id:str, output_path:Path|str, cookie_path:Path|
             print(f"A general error occurred: {e}")
             if "bot" in str(e):
                 raise e
+            elif "Video unavailable" in str(e):
+                raise e
     return video_filepath
 
 def extract_video_id(url:str)->str|None:
@@ -179,6 +181,9 @@ def cleanse_tabular_video_info(raw_df:pd.DataFrame, drop_vlc=False)-> pd.DataFra
         cleansed_df = do_drop_vlc(cleansed_df)
 
     return cleansed_df
+def get_title(raw_df:pd.DataFrame)->str:
+    title = raw_df["title"][0]
+    return title
 
 def get_thumbnail_image(video_id:str, thumbnail_url:str, save_folder:Path) -> Path:
     def switch_to_hq(url_str):
