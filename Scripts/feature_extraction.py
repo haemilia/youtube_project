@@ -161,6 +161,76 @@ def feature_from_video(video_path:Path, processor: AutoProcessor, model: AutoMod
     except Exception as e:
         print(f"An error occurred: {e}")
         return None
+    
+
+def feature_from_video_with_l1(video_path:Path, processor: AutoProcessor, model: AutoModel, device:torch.device, num_of_frames:int=16) -> np.ndarray|None:
+    """
+    Extracts semantic features from a video using the XCLIP model,
+    following the Hugging Face documentation example.
+
+    Args:
+        video_path (str): The path to the video file.
+        processor (AutoProcessor): The pre-trained XCLIP processor.
+        model (AutoModel): The pre-trained XCLIP model.
+
+    Returns:
+        video_features: A numpy array representing the semantic feature vector of the video.
+                       Returns None if there's an issue processing the video.
+    """
+    try:
+        # Open the video file
+        cap = cv2.VideoCapture(video_path)
+        if not cap.isOpened():
+            print(f"Error: Could not open video file at {video_path}")
+            return None
+
+        # Get video properties
+        frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        total_duration_seconds = frame_count / fps if fps > 0 else 0
+
+        # Define the number of frames to sample
+        num_frames_to_sample = num_of_frames
+        if frame_count < num_frames_to_sample:
+            indices = np.linspace(0, frame_count - 1, frame_count, dtype=int)
+        else:
+            indices = np.linspace(0, frame_count - 1, num_frames_to_sample, dtype=int)
+
+        sampled_frames = []
+        for i in indices:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, i)
+            ret, frame = cap.read()
+            if ret:
+                # Convert frame to RGB
+                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                sampled_frames.append(frame_rgb)
+            else:
+                print(f"Warning: Could not read frame at index {i}")
+
+        cap.release()
+
+        if not sampled_frames:
+            print("Error: No frames were successfully sampled from the video.")
+            return None
+        
+        # Process the sampled frames
+        inputs = processor(videos=sampled_frames, return_tensors="pt")
+        print("Shape of inputs['pixel_values']:", inputs['pixel_values'].shape)
+
+    
+        # Get the video features
+        with torch.no_grad():
+            video_features = model.get_video_features(**inputs)
+
+
+        # The output of get_video_features is likely a tensor of shape (batch_size, feature_dimension)
+        # Since we are processing one video at a time, batch_size will be 1.
+        # We want to extract the feature vector and convert it to a NumPy array.
+        return video_features.squeeze(0).cpu().numpy()
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        return None
 
     
 def main():

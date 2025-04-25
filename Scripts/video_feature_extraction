@@ -36,7 +36,7 @@ if (progress_save_path).exists():
     with open(progress_save_path, "r") as fr:
         start_from = int(fr.read())
 else:
-    start_from = 2863
+    start_from = 2893
 
 error_message = "Completed without catching error"
 ids_to_query = unpopular_id[start_from:]
