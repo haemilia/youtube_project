@@ -23,14 +23,14 @@ device = fe.set_device()
 vid_processor = fe.load_video_processor(hf_token)
 vid_model = fe.load_video_model(device, hf_token)
 
-xclip_filename = features_dir/"unpopular_video_vectors.pkl"
+xclip_filename = features_dir/"unpopular_video_features.pkl"
 if (xclip_filename).exists():
     with open(xclip_filename,'rb') as fr:
         xclip_features_dict = pickle.load(fr)
 else:
     xclip_features_dict = {}
 
-l1_filename = features_dir/"unpopular_video_vectors.pkl"
+l1_filename = features_dir/"unpopular_l1_norms.pkl"
 if (l1_filename).exists():
     with open(l1_filename,'rb') as fr:
         l1_features_dict = pickle.load(fr)
@@ -50,11 +50,14 @@ ids_to_query = unpopular_id[start_from:]
 total = len(ids_to_query)
 
 # Define the full path to the log file on the shared drive
-shared_drive_path = DATA_PATH 
-log_file_path = shared_drive_path / "vid_feature_output.log"
+# changed to local path for now
+shared_drive_path = Path("../LOG")
+log_file_path = shared_drive_path / "progress.log"
 
 # Ensure the directory exists
 shared_drive_path.mkdir(parents=True, exist_ok=True)
+temp_dir = Path("../temp")
+use.create_directory_if_not_exists(temp_dir)
 
 with open(log_file_path, 'a') as log_file:
     original_stdout = sys.stdout
@@ -63,8 +66,6 @@ with open(log_file_path, 'a') as log_file:
         for i, video_id in enumerate(ids_to_query):
             print(f"{i+1} / {total}")
             # download video to temp
-            temp_dir = Path("../temp")
-            use.create_directory_if_not_exists(temp_dir)
             vid_path = download_video_with_id(video_id, temp_dir, cookie_path="../cookies.txt")
 
             # extract features
@@ -108,4 +109,4 @@ def write_termination_file_pathlib(reason, shared_drive_path_str):
     except Exception as e:
         print(f"Error writing to shared drive: {e}")
 
-write_termination_file_pathlib(error_message, DATA_PATH)
+write_termination_file_pathlib(error_message, Path("../LOG"))
