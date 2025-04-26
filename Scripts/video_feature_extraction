@@ -23,12 +23,19 @@ device = fe.set_device()
 vid_processor = fe.load_video_processor(hf_token)
 vid_model = fe.load_video_model(device, hf_token)
 
-destination_filename = features_dir/"unpopular_video_vectors.pkl"
-if (destination_filename).exists():
-    with open(destination_filename,'rb') as fr:
-        video_features_dict = pickle.load(fr)
+xclip_filename = features_dir/"unpopular_video_vectors.pkl"
+if (xclip_filename).exists():
+    with open(xclip_filename,'rb') as fr:
+        xclip_features_dict = pickle.load(fr)
 else:
-    video_features_dict = {}
+    xclip_features_dict = {}
+
+l1_filename = features_dir/"unpopular_video_vectors.pkl"
+if (l1_filename).exists():
+    with open(l1_filename,'rb') as fr:
+        l1_features_dict = pickle.load(fr)
+else:
+    l1_features_dict = {}
 
 progress_save_path = DATA_PATH / "temp/progress.txt"
 
@@ -36,7 +43,7 @@ if (progress_save_path).exists():
     with open(progress_save_path, "r") as fr:
         start_from = int(fr.read())
 else:
-    start_from = 2893
+    start_from = 0
 
 error_message = "Completed without catching error"
 ids_to_query = unpopular_id[start_from:]
@@ -55,23 +62,26 @@ with open(log_file_path, 'a') as log_file:
     try:
         for i, video_id in enumerate(ids_to_query):
             print(f"{i+1} / {total}")
-            # download video in temp
+            # download video to temp
             temp_dir = Path("../temp")
             use.create_directory_if_not_exists(temp_dir)
             vid_path = download_video_with_id(video_id, temp_dir, cookie_path="../cookies.txt")
 
             # extract features
             print("Extracting feature vectors...")
-            video_features = fe.feature_from_video(vid_path,
+            xclip_features, l1_features = fe.feature_from_video_with_l1(vid_path,
                                                 processor=vid_processor,
                                                 model=vid_model,
                                                 device=device,
                                                 num_of_frames=8)
             # store features
             print("Storing feature vectors...")
-            video_features_dict[video_id] = video_features
-            with open(features_dir/"unpopular_video_vectors.pkl",'wb') as fw:
-                pickle.dump(video_features_dict, fw)
+            xclip_features_dict[video_id] = xclip_features
+            l1_features_dict[video_id] = l1_features
+            with open(features_dir/"unpopular_video_features.pkl", "wb") as fw:
+                pickle.dump(xclip_features, fw)
+            with open(features_dir/"unpopular_l1_norms.pkl",'wb') as fw:
+                pickle.dump(l1_features_dict, fw)
             with open(DATA_PATH / "temp/progress.txt", "w") as fw:
                 fw.write(str(start_from +i))
 

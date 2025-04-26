@@ -163,7 +163,7 @@ def feature_from_video(video_path:Path, processor: AutoProcessor, model: AutoMod
         return None
     
 
-def feature_from_video_with_l1(video_path:Path, processor: AutoProcessor, model: AutoModel, device:torch.device, num_of_frames:int=16) -> np.ndarray|None:
+def feature_from_video_with_l1(video_path:Path, processor: AutoProcessor, model: AutoModel, device:torch.device, sample_percentage) -> np.ndarray|None:
     """
     Extracts semantic features from a video using the XCLIP model,
     following the Hugging Face documentation example.
@@ -182,55 +182,82 @@ def feature_from_video_with_l1(video_path:Path, processor: AutoProcessor, model:
         cap = cv2.VideoCapture(video_path)
         if not cap.isOpened():
             print(f"Error: Could not open video file at {video_path}")
-            return None
-
+            return None, None  
+        
         # Get video properties
-        frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        fps = cap.get(cv2.CAP_PROP_FPS)
-        total_duration_seconds = frame_count / fps if fps > 0 else 0
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
-        # Define the number of frames to sample
-        num_frames_to_sample = num_of_frames
-        if frame_count < num_frames_to_sample:
-            indices = np.linspace(0, frame_count - 1, frame_count, dtype=int)
+        if total_frames == 0:
+            print(f"Warning: Video {video_path} has no frames")
+            cap.release()
+            return None, None
+        # Define number of frames to sample for l1-norms
+        l1_num_samples = int(total_frames * sample_percentage)
+        if l1_num_samples == 0 and total_frames > 0:
+            l1_num_samples = 1 # ensure at least one frame is sampled
+        # Generate evenly spaced l1 frame indices
+        l1_frame_indices = np.linspace(0, total_frames - 1, l1_num_samples, dtype=int)
+        
+        # Define the number of frames to sample for XCLIP
+        num_frames_to_sample = 8
+        if total_frames < num_frames_to_sample:
+            X_CLIP_indices = np.linspace(0, total_frames - 1, total_frames, dtype=int)
         else:
-            indices = np.linspace(0, frame_count - 1, num_frames_to_sample, dtype=int)
-
-        sampled_frames = []
-        for i in indices:
-            cap.set(cv2.CAP_PROP_POS_FRAMES, i)
+            X_CLIP_indices = np.linspace(0, total_frames - 1, num_frames_to_sample, dtype=int)
+        
+        # Sample frames for l1 norms
+        l1_sampled_frames = []
+        for l1_i in l1_frame_indices:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, l1_i)
+            ret, frame = cap.read()
+            if ret:
+                frame_grey = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                l1_sampled_frames.append(frame_grey)
+            else:
+                print(f"Warning: Could not read frame at index {l1_i} from {video_path}")
+        
+        # Sample frames for xclip
+        xclip_sampled_frames = []
+        for x_i in X_CLIP_indices:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, x_i)
             ret, frame = cap.read()
             if ret:
                 # Convert frame to RGB
                 frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                sampled_frames.append(frame_rgb)
+                xclip_sampled_frames.append(frame_rgb)
             else:
-                print(f"Warning: Could not read frame at index {i}")
+                print(f"Warning: Could not read frame at index {x_i} from {video_path}")
 
         cap.release()
 
-        if not sampled_frames:
+        if not (l1_sampled_frames and xclip_sampled_frames):
             print("Error: No frames were successfully sampled from the video.")
-            return None
+            return None, None
         
+        # Calculate L1-norms between consecutive sampled frames
+        l1_norms_sampled = []
+        if len(l1_sampled_frames) > 1:
+            for i in range(len(l1_sampled_frames) - 1):
+                l1_norm = np.sum(np.abs(l1_sampled_frames[i+1] - l1_sampled_frames[i]))
+                l1_norms_sampled.append(l1_norm)
+            
         # Process the sampled frames
-        inputs = processor(videos=sampled_frames, return_tensors="pt")
+        inputs = processor(videos=xclip_sampled_frames, return_tensors="pt")
         print("Shape of inputs['pixel_values']:", inputs['pixel_values'].shape)
 
-    
         # Get the video features
         with torch.no_grad():
-            video_features = model.get_video_features(**inputs)
+            xclip_features = model.get_video_features(**inputs)
 
 
         # The output of get_video_features is likely a tensor of shape (batch_size, feature_dimension)
         # Since we are processing one video at a time, batch_size will be 1.
         # We want to extract the feature vector and convert it to a NumPy array.
-        return video_features.squeeze(0).cpu().numpy()
+        return xclip_features.squeeze(0).cpu().numpy(), l1_norms_sampled
 
     except Exception as e:
         print(f"An error occurred: {e}")
-        return None
+        return None, None
 
     
 def main():
