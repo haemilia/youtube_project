@@ -1,27 +1,12 @@
 #%%
-import logging
-
-logger = logging.getLogger(__name__)
-logging.basicConfig(filename="../LOG/progress.log",
-                    encoding="utf-8",
-                    level=logging.INFO,
-                    format='%(asctime)s; %(message)s')
-
-progress_task = "SAVE"
-progress_path = "Something/here/"
-logger.info(f"{progress_task}; {progress_path}")
-
-#%%
-import pandas as pd
-
-log = pd.read_csv("../LOG/progress.log", sep="; ", engine="python")
-log
-
-#%%
 import useful as use
 import pandas as pd
-import numpy as np
 from pathlib import Path
+
 priv = use.get_priv()
-API_KEY = priv["API_KEY"]
 DATA_PATH = Path(priv["DATA_PATH"])
+
+popular_df_raw = pd.read_pickle(DATA_PATH / "temp/raw/popular_raw.pkl")
+# unpopular_df_raw = pd.read_pickle(DATA_PATH/"temp/raw/unpopular_raw.pkl")
+row = popular_df_raw[popular_df_raw["id"] == "7nGdpHQ0Uc8"]
+row["title"].iloc[0]
