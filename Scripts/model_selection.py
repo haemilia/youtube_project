@@ -36,12 +36,14 @@ else:
 # 5: video
 from dataset import dataset_construction
 import useful as use
-DATA_PATH = Path(use.get_priv()["DATA_PATH"])
+DATA_PATH = Path("../Datasets")
 locations = {
-    "tabular_features_vlc": DATA_PATH / "dataset/tabular_features_vlc.pkl",
-    "tabular_features_no_vlc": DATA_PATH / "dataset/tabular_features_no_vlc.pkl",
-    "title_features": DATA_PATH/"dataset/title_features.pkl",
-    "thumbnail_features": DATA_PATH/"dataset/thumbnail_features.pkl",
+    "tabular_features_vlc": DATA_PATH / "tabular_features_vlc.pkl",
+    "tabular_features_no_vlc": DATA_PATH / "tabular_features_no_vlc.pkl",
+    "title_features": DATA_PATH/"title_features.pkl",
+    "thumbnail_features": DATA_PATH/"thumbnail_features.pkl",
+    "video_l1_features": DATA_PATH / "video_l1_features.pkl",
+    "video_xclip_features": DATA_PATH / "video_xclip_features.pkl"
 }
 X, y = dataset_construction(dataset_name, locations)
 print("Shape of dataset:")

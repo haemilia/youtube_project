@@ -716,140 +716,140 @@ len(ids_to_query)
 ############################################### RUN HERE ######################################
 #%%
 # Get xclip and l1 features
-import pandas as pd
-import numpy as np
-from pathlib import Path
-import pickle
+# import pandas as pd
+# import numpy as np
+# from pathlib import Path
+# import pickle
 
-temp_dir = Path("../Temp")
-dataset_dir = Path("../Datasets")
+# temp_dir = Path("../Temp")
+# dataset_dir = Path("../Datasets")
 
-with open(temp_dir / "popular_l1_norms.pkl", "rb") as fr:
-    popular_l1 = pickle.load(fr)
+# with open(temp_dir / "popular_l1_norms.pkl", "rb") as fr:
+#     popular_l1 = pickle.load(fr)
 
-with open(temp_dir / "unpopular_l1_norms.pkl", "rb") as fr:
-    unpopular_l1 = pickle.load(fr)
+# with open(temp_dir / "unpopular_l1_norms.pkl", "rb") as fr:
+#     unpopular_l1 = pickle.load(fr)
 
-with open(temp_dir / "popular_xclip_features.pkl", "rb") as fr:
-    popular_xclip = pickle.load(fr)
+# with open(temp_dir / "popular_xclip_features.pkl", "rb") as fr:
+#     popular_xclip = pickle.load(fr)
 
-with open(temp_dir / "unpopular_xclip_features.pkl", "rb") as fr:
-    unpopular_xclip = pickle.load(fr)
+# with open(temp_dir / "unpopular_xclip_features.pkl", "rb") as fr:
+#     unpopular_xclip = pickle.load(fr)
 
-# Even though we don't have enough unpopular vids, I'm putting the dataset together
-# If possible, run again when more unpopular vids have been collected.
-
-
-# Process l1_norms
-def extract_fixed_length_features(l1_norms, num_segments=5, percentile_values=[10, 30, 50, 70, 90], num_bins=10):
-    """
-    Extracts a fixed-length feature vector from a sequence of L1 norms.
-
-    Args:
-        l1_norms (np.ndarray): A 1D NumPy array representing the sequence of L1 norms.
-        num_segments (int): The number of segments to divide the L1-norm sequence into.
-        percentile_values (list): A list of percentile values to calculate (e.g., [25, 50, 75]).
-        num_bins (int): The number of bins for the histogram.
-
-    Returns:
-        np.ndarray: A 1D NumPy array containing the fixed-length feature vector.
-    """
-    features = []
-    n = len(l1_norms)
-
-    # 1. Segment-based statistics
-    if n > 0 and num_segments > 0:
-        segment_size = n // num_segments
-        remainder = n % num_segments
-        start = 0
-        for i in range(num_segments):
-            end = start + segment_size + (1 if i < remainder else 0)
-            if start < end:
-                segment = l1_norms[start:end]
-                features.extend([np.mean(segment), np.std(segment)])
-            start = end
-    elif n > 0:
-        # Handle case where num_segments is 0 or sequence is too short
-        features.extend([np.mean(l1_norms), np.std(l1_norms)])
-    else:
-        # Handle empty sequence
-        features.extend([0.0] * 2 * num_segments) # Add placeholders
-
-    # 2. Percentiles
-    percentile_features = np.percentile(l1_norms, percentile_values)
-    features.extend(percentile_features)
-
-    # 3. Histogram
-    hist, _ = np.histogram(l1_norms, bins=num_bins)
-    features.extend(hist)
-
-    return np.array(features)
-
-popular_l1_features = {}
-for video_id, l1_norms in popular_l1.items():
-    l1_features = extract_fixed_length_features(np.array(l1_norms))
-    popular_l1_features[video_id] = l1_features
-
-video_ids = popular_l1_features.keys()
-l1_features = [popular_l1_features[vid_id] for vid_id in video_ids]
-num_elements = l1_features[0].shape[0]
-column_names = [f"l1_{i}"for i in range(num_elements)]
-popular_l1_df = pd.DataFrame(l1_features, index=video_ids,columns=column_names)
-popular_l1_df = popular_l1_df.reset_index()
-popular_l1_df = popular_l1_df.rename(columns={"index": "video_id"})
-popular_l1_df["target"] = 1
+# # Even though we don't have enough unpopular vids, I'm putting the dataset together
+# # If possible, run again when more unpopular vids have been collected.
 
 
-unpopular_l1_features = {}
-for video_id, l1_norms in unpopular_l1.items():
-    if l1_norms is None:
-        continue
-    l1_features = extract_fixed_length_features(np.array(l1_norms))
-    unpopular_l1_features[video_id] = l1_features
+# # Process l1_norms
+# def extract_fixed_length_features(l1_norms, num_segments=5, percentile_values=[10, 30, 50, 70, 90], num_bins=10):
+#     """
+#     Extracts a fixed-length feature vector from a sequence of L1 norms.
 
-video_ids = unpopular_l1_features.keys()
-l1_features = [unpopular_l1_features[vid_id] for vid_id in video_ids]
-num_elements = l1_features[0].shape[0]
-column_names = [f"l1_{i}"for i in range(num_elements)]
-unpopular_l1_df = pd.DataFrame(l1_features, index=video_ids,columns=column_names)
-unpopular_l1_df = unpopular_l1_df.reset_index()
-unpopular_l1_df = unpopular_l1_df.rename(columns={"index": "video_id"})
-unpopular_l1_df["target"] = 0
+#     Args:
+#         l1_norms (np.ndarray): A 1D NumPy array representing the sequence of L1 norms.
+#         num_segments (int): The number of segments to divide the L1-norm sequence into.
+#         percentile_values (list): A list of percentile values to calculate (e.g., [25, 50, 75]).
+#         num_bins (int): The number of bins for the histogram.
 
-video_l1_features = pd.concat([popular_l1_df, unpopular_l1_df])
-video_l1_features.to_pickle(dataset_dir / "video_l1_features.pkl")
+#     Returns:
+#         np.ndarray: A 1D NumPy array containing the fixed-length feature vector.
+#     """
+#     features = []
+#     n = len(l1_norms)
 
-# now xclip features
-print(len(popular_xclip))
-popular_xclip_features = {video_id: xclip_features for video_id, xclip_features in popular_xclip.items() if xclip_features is not None}
-print(len(popular_xclip_features))
-video_ids = popular_xclip_features.keys()
-xclip_features = [popular_xclip_features[vid_id] for vid_id in video_ids]
-num_elements = xclip_features[0].shape[0]
-column_names = [f"xclip_{i}" for i in range(num_elements)]
-df = pd.DataFrame(xclip_features, 
-                  index=video_ids,
-                  columns=column_names)
-df = df.reset_index()
-df = df.rename(columns={"index":"video_id"})
-df["target"] = 1
-popular_xclip_df = df
+#     # 1. Segment-based statistics
+#     if n > 0 and num_segments > 0:
+#         segment_size = n // num_segments
+#         remainder = n % num_segments
+#         start = 0
+#         for i in range(num_segments):
+#             end = start + segment_size + (1 if i < remainder else 0)
+#             if start < end:
+#                 segment = l1_norms[start:end]
+#                 features.extend([np.mean(segment), np.std(segment)])
+#             start = end
+#     elif n > 0:
+#         # Handle case where num_segments is 0 or sequence is too short
+#         features.extend([np.mean(l1_norms), np.std(l1_norms)])
+#     else:
+#         # Handle empty sequence
+#         features.extend([0.0] * 2 * num_segments) # Add placeholders
+
+#     # 2. Percentiles
+#     percentile_features = np.percentile(l1_norms, percentile_values)
+#     features.extend(percentile_features)
+
+#     # 3. Histogram
+#     hist, _ = np.histogram(l1_norms, bins=num_bins)
+#     features.extend(hist)
+
+#     return np.array(features)
+
+# popular_l1_features = {}
+# for video_id, l1_norms in popular_l1.items():
+#     l1_features = extract_fixed_length_features(np.array(l1_norms))
+#     popular_l1_features[video_id] = l1_features
+
+# video_ids = popular_l1_features.keys()
+# l1_features = [popular_l1_features[vid_id] for vid_id in video_ids]
+# num_elements = l1_features[0].shape[0]
+# column_names = [f"l1_{i}"for i in range(num_elements)]
+# popular_l1_df = pd.DataFrame(l1_features, index=video_ids,columns=column_names)
+# popular_l1_df = popular_l1_df.reset_index()
+# popular_l1_df = popular_l1_df.rename(columns={"index": "video_id"})
+# popular_l1_df["target"] = 1
 
 
-print(len(unpopular_xclip))
-unpopular_xclip_features = {video_id: xclip_features for video_id, xclip_features in unpopular_xclip.items() if xclip_features is not None}
-print(len(unpopular_xclip_features))
-video_ids = unpopular_xclip_features.keys()
-xclip_features = [unpopular_xclip_features[vid_id] for vid_id in video_ids]
-num_elements = xclip_features[0].shape[0]
-column_names = [f"xclip_{i}" for i in range(num_elements)]
-df = pd.DataFrame(xclip_features, 
-                  index=video_ids,
-                  columns=column_names)
-df = df.reset_index()
-df = df.rename(columns={"index":"video_id"})
-df["target"] = 1
-unpopular_xclip_df = df
+# unpopular_l1_features = {}
+# for video_id, l1_norms in unpopular_l1.items():
+#     if l1_norms is None:
+#         continue
+#     l1_features = extract_fixed_length_features(np.array(l1_norms))
+#     unpopular_l1_features[video_id] = l1_features
 
-video_xclip_features = pd.concat([popular_xclip_df, unpopular_xclip_df])
-video_xclip_features.to_pickle(dataset_dir / "video_xclip_features.pkl")
+# video_ids = unpopular_l1_features.keys()
+# l1_features = [unpopular_l1_features[vid_id] for vid_id in video_ids]
+# num_elements = l1_features[0].shape[0]
+# column_names = [f"l1_{i}"for i in range(num_elements)]
+# unpopular_l1_df = pd.DataFrame(l1_features, index=video_ids,columns=column_names)
+# unpopular_l1_df = unpopular_l1_df.reset_index()
+# unpopular_l1_df = unpopular_l1_df.rename(columns={"index": "video_id"})
+# unpopular_l1_df["target"] = 0
+
+# video_l1_features = pd.concat([popular_l1_df, unpopular_l1_df])
+# video_l1_features.to_pickle(dataset_dir / "video_l1_features.pkl")
+
+# # now xclip features
+# print(len(popular_xclip))
+# popular_xclip_features = {video_id: xclip_features for video_id, xclip_features in popular_xclip.items() if xclip_features is not None}
+# print(len(popular_xclip_features))
+# video_ids = popular_xclip_features.keys()
+# xclip_features = [popular_xclip_features[vid_id] for vid_id in video_ids]
+# num_elements = xclip_features[0].shape[0]
+# column_names = [f"xclip_{i}" for i in range(num_elements)]
+# df = pd.DataFrame(xclip_features, 
+#                   index=video_ids,
+#                   columns=column_names)
+# df = df.reset_index()
+# df = df.rename(columns={"index":"video_id"})
+# df["target"] = 1
+# popular_xclip_df = df
+
+
+# print(len(unpopular_xclip))
+# unpopular_xclip_features = {video_id: xclip_features for video_id, xclip_features in unpopular_xclip.items() if xclip_features is not None}
+# print(len(unpopular_xclip_features))
+# video_ids = unpopular_xclip_features.keys()
+# xclip_features = [unpopular_xclip_features[vid_id] for vid_id in video_ids]
+# num_elements = xclip_features[0].shape[0]
+# column_names = [f"xclip_{i}" for i in range(num_elements)]
+# df = pd.DataFrame(xclip_features, 
+#                   index=video_ids,
+#                   columns=column_names)
+# df = df.reset_index()
+# df = df.rename(columns={"index":"video_id"})
+# df["target"] = 1
+# unpopular_xclip_df = df
+
+# video_xclip_features = pd.concat([popular_xclip_df, unpopular_xclip_df])
+# video_xclip_features.to_pickle(dataset_dir / "video_xclip_features.pkl")
