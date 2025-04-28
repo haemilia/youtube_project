@@ -181,7 +181,7 @@ def cleanse_tabular_video_info(raw_df:pd.DataFrame, drop_vlc=False)-> pd.DataFra
         result = df.drop(["views", "likes", "private-likes", "comments", "private-comments"], axis=1)
         return result
     # cleanse!
-    cleansed_df = cleanse_vid_df(raw_df)
+    cleansed_df = cleanse_vid_df(raw_df, cleansing=cleansing)
     # If asked to do so, drop Views, Likes, Comments
     if drop_vlc:
         cleansed_df = do_drop_vlc(cleansed_df)
