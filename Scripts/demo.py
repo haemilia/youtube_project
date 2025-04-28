@@ -5,7 +5,7 @@ from urllib.parse import urlparse, parse_qs
 import pandas as pd
 import useful as use
 
-def download_video_with_id(video_id:str, output_path:Path|str, cookie_path:Path|str) -> Path|None:
+def download_video_with_id(video_id:str, output_path:Path|str, cookie_path=None) -> Path|None:
     """
     Downloads YouTube video from Youtube video ID.
     Args:
@@ -22,11 +22,17 @@ def download_video_with_id(video_id:str, output_path:Path|str, cookie_path:Path|
         print("Video already exists. Exiting download")
         return video_filepath
     # options
-    base_opts = {
-        "format": "bestvideo[height<=360][ext=mp4][vcodec^=?avc]",  # Download best quality video up to 360p in MP4 format (no audio)
-        "quiet": False,
-        "cookiefile": cookie_path,
-        }
+    if cookie_path is not None:
+        base_opts = {
+            "format": "bestvideo[height<=360][ext=mp4][vcodec^=?avc]",  # Download best quality video up to 360p in MP4 format (no audio)
+            "quiet": False,
+            "cookiefile": cookie_path,
+            }
+    else:
+        base_opts = {
+            "format": "bestvideo[height<=360][ext=mp4][vcodec^=?avc]",  # Download best quality video up to 360p in MP4 format (no audio)
+            "quiet": False,
+            } 
     url = f"https://www.youtube.com/watch?v={video_id}"
     ydl_opts = base_opts.copy()
     ydl_opts["outtmpl"] = str(video_filepath)
