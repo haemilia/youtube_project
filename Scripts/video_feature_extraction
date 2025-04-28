@@ -2,42 +2,61 @@ from pathlib import Path
 import useful as use
 import pandas as pd
 import numpy as np
+import logging
+import pickle
+import sys
+from datetime import datetime
+import signal
+import time  # For a small delay
+
+from demo import download_video_with_id
+import feature_extraction as fe
+
 priv = use.get_priv()
 global DATA_PATH
 DATA_PATH = Path(priv["DATA_PATH"])
 hf_token = priv["HF_API_KEY"]
-features_dir = DATA_PATH / "dataset"
+features_dir = Path("../Datasets")
 
-unpopular_df_raw = pd.read_pickle(DATA_PATH/"temp/raw/unpopular_raw.pkl")
+# load previous attempt
+temp_dir = Path("../Temp")
 
-from demo import download_video_with_id
-import feature_extraction as fe
-import pickle
-import sys
+xclip_filename = temp_dir / "unpopular_xclip_features.pkl"
+l1_filename = temp_dir / "unpopular_l1_norms.pkl"
 
-# Your DataFrame of video IDs
-unpopular_id = unpopular_df_raw["id"]
+if (temp_dir / "need_to_collect.pkl").exists():
+    with open(temp_dir / "need_to_collect.pkl", "rb") as fr:
+        need_to_collect = pickle.load(fr)
+    with open(xclip_filename, "rb") as fr:
+        xclip_features_dict = pickle.load(fr)
+    with open(l1_filename, "rb") as fr:
+        l1_features_dict = pickle.load(fr)
+else:
+    unpopular_ids = pd.read_pickle(temp_dir / "unpopular_ids.pkl")
+    with open(temp_dir / "unpopular_l1_norms.pkl", "rb") as fr:
+        previous_attempt_l1 = pickle.load(fr)
+    with open(temp_dir / "unpopular_video_features.pkl", "rb") as fr:
+        previous_attempt_xclip = pickle.load(fr)
+
+    xclip_features_dict = {}
+    l1_features_dict = {}
+    need_to_collect = []
+    for vid_id in unpopular_ids:
+        if (vid_id not in previous_attempt_l1.keys()) or (vid_id not in previous_attempt_xclip.keys()):
+            need_to_collect.append(vid_id)
+        else:
+            xclip_features_dict[vid_id] = previous_attempt_xclip[vid_id]
+            l1_features_dict[vid_id] = previous_attempt_l1[vid_id]
+    with open(temp_dir / "need_to_collect.pkl", "wb") as fw:
+        pickle.dump(need_to_collect, fw)
+
 
 # Prepare model and preprocessor
 device = fe.set_device()
 vid_processor = fe.load_video_processor(hf_token)
 vid_model = fe.load_video_model(device, hf_token)
 
-xclip_filename = features_dir/"unpopular_video_features.pkl"
-if (xclip_filename).exists():
-    with open(xclip_filename,'rb') as fr:
-        xclip_features_dict = pickle.load(fr)
-else:
-    xclip_features_dict = {}
-
-l1_filename = features_dir/"unpopular_l1_norms.pkl"
-if (l1_filename).exists():
-    with open(l1_filename,'rb') as fr:
-        l1_features_dict = pickle.load(fr)
-else:
-    l1_features_dict = {}
-
-progress_save_path = DATA_PATH / "temp/progress.txt"
+progress_save_path = Path("../LOG/progress_num.txt")
 
 if (progress_save_path).exists():
     with open(progress_save_path, "r") as fr:
@@ -46,8 +65,19 @@ else:
     start_from = 0
 
 error_message = "Completed without catching error"
-ids_to_query = unpopular_id[start_from:]
-total = len(ids_to_query)
+
+# Define flag to indicate if graceful stop is required
+graceful_stop = False
+
+def check_for_stop_command():
+    global graceful_stop
+    import msvcrt
+    if msvcrt.kbhit():
+        key = msvcrt.getch().decode('utf-8').lower()
+        if key == 'q':
+            print("\n'q' pressed. Graceful stop requested. Finishing current video processing.")
+            graceful_stop = True
+        # msvcrt.putch(key.encode()) # Optionally echo the key press
 
 # Define the full path to the log file on the shared drive
 # changed to local path for now
@@ -56,46 +86,78 @@ log_file_path = shared_drive_path / "progress.log"
 
 # Ensure the directory exists
 shared_drive_path.mkdir(parents=True, exist_ok=True)
-temp_dir = Path("../temp")
-use.create_directory_if_not_exists(temp_dir)
 
-with open(log_file_path, 'a') as log_file:
-    original_stdout = sys.stdout
-    sys.stdout = log_file
-    try:
-        for i, video_id in enumerate(ids_to_query):
-            print(f"{i+1} / {total}")
-            # download video to temp
-            vid_path = download_video_with_id(video_id, temp_dir, cookie_path="../cookies.txt")
+# Configure logging
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 
-            # extract features
-            print("Extracting feature vectors...")
+# File handler
+file_handler = logging.FileHandler(log_file_path, mode='a')
+file_handler.setFormatter(formatter)
+logger.addHandler(file_handler)
+
+# Console handler
+stream_handler = logging.StreamHandler(sys.stdout)
+stream_handler.setFormatter(formatter)
+logger.addHandler(stream_handler)
+
+ids_to_query = need_to_collect[start_from:]
+total = len(ids_to_query)
+
+try:
+    import msvcrt  # Import the msvcrt module for non-blocking input on Windows
+
+    for i, video_id in enumerate(ids_to_query):
+        check_for_stop_command()
+        if graceful_stop:
+            logger.info("Graceful stop initiated. Exiting after this video.")
+            break
+        log_message = f"{i+1} / {total}"
+        logger.info(log_message)
+        # download video to temp
+        vid_path = download_video_with_id(video_id, temp_dir, cookie_path="../cookies.txt")
+
+        # extract features
+        log_message = "Extracting feature vectors..."
+        logger.info(log_message)
+        try:
             xclip_features, l1_features = fe.feature_from_video_with_l1(vid_path,
-                                                processor=vid_processor,
-                                                model=vid_model,
-                                                device=device,
-                                                num_of_frames=8)
-            # store features
-            print("Storing feature vectors...")
-            xclip_features_dict[video_id] = xclip_features
-            l1_features_dict[video_id] = l1_features
-            with open(features_dir/"unpopular_video_features.pkl", "wb") as fw:
-                pickle.dump(xclip_features, fw)
-            with open(features_dir/"unpopular_l1_norms.pkl",'wb') as fw:
-                pickle.dump(l1_features_dict, fw)
-            with open(DATA_PATH / "temp/progress.txt", "w") as fw:
-                fw.write(str(start_from +i))
+                                                                        processor=vid_processor,
+                                                                        model=vid_model,
+                                                                        device=device,
+                                                                        sample_percentage=0.05)
+        except Exception as e:
+            log_message = "Error while extracting feature vectors: " + str(e)
+            logger.error(log_message)
+            continue
 
-            # delete video from temp
-            if vid_path is None:
-                vid_path = temp_dir / f"{video_id}.mp4"
-            vid_path.unlink(missing_ok=True)
-            print(f"Deleted {video_id}.mp4")
-    except Exception as e:
-        error_message = str(e)
-    sys.stdout = original_stdout
+        # store features
+        log_message = "Storing feature vectors in dictionaries..."
+        logger.info(log_message)
+        xclip_features_dict[video_id] = xclip_features
+        l1_features_dict[video_id] = l1_features
 
-from datetime import datetime
+        with open(progress_save_path, "w") as fw:
+            fw.write(str(start_from +i + 1)) # Increment start_from here
+
+        # delete video from temp
+        if vid_path is None:
+            vid_path = temp_dir / f"{video_id}.mp4"
+        vid_path.unlink(missing_ok=True)
+        log_message = f"Deleted {video_id}.mp4"
+        logger.info(log_message)
+        time.sleep(0.1) # Small delay to prevent busy-waiting
+
+except Exception as e:
+    error_message = str(e)
+
+log_message = "Storing all feature vectors..."
+logger.info(log_message)
+with open(xclip_filename, "wb") as fw:
+    pickle.dump(xclip_features_dict, fw)
+with open(l1_filename,'wb') as fw:
+    pickle.dump(l1_features_dict, fw)
 
 def write_termination_file_pathlib(reason, shared_drive_path_str):
     shared_drive_path = Path(shared_drive_path_str)
@@ -105,8 +167,8 @@ def write_termination_file_pathlib(reason, shared_drive_path_str):
 
     try:
         full_path.write_text(f"Loop terminated at: {timestamp}\nReason: {reason}\n")
-        print(f"Termination status written to: {full_path}")
+        logger.info(f"Termination status written to: {full_path}")
     except Exception as e:
-        print(f"Error writing to shared drive: {e}")
+        logger.error(f"Error writing to shared drive: {e}")
 
 write_termination_file_pathlib(error_message, Path("../LOG"))

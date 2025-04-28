@@ -555,93 +555,139 @@ def dataset_construction(instruction:str|list, locations:dict):
     return result_X, result_y
 
 #%%
-# import useful as use
-# import pandas as pd
-# import numpy as np
-# from pathlib import Path
+import useful as use
+import pandas as pd
+import numpy as np
+from pathlib import Path
 
-# priv = use.get_priv()
-# DATA_PATH = Path(priv["DATA_PATH"])
+priv = use.get_priv()
+DATA_PATH = Path(priv["DATA_PATH"])
+new_dataset_dir = Path("../Datasets")
 
-# tabular_features = pd.read_pickle(DATA_PATH / "dataset/tabular_features_vlc.pkl")
-# tabular_features_no_vlc = pd.read_pickle(DATA_PATH/"dataset/tabular_features_no_vlc.pkl")
-# label_info = pd.read_pickle(DATA_PATH/"dataset/label_info.pkl")
+tabular_features = pd.read_pickle(DATA_PATH / "dataset/tabular_features_vlc.pkl")
+tabular_features_no_vlc = pd.read_pickle(DATA_PATH/"dataset/tabular_features_no_vlc.pkl")
+label_info = pd.read_pickle(DATA_PATH/"dataset/label_info.pkl")
 
-# features = {}
-# features[0] = tabular_features
-# features[1] = tabular_features_no_vlc
-# with np.load(DATA_PATH/"dataset/popular_title_features.npz") as data:
-#     keys = data.files
-#     vector_arrays = [data[key] for key in keys]
-#     num_elements = vector_arrays[0].shape[0] if vector_arrays else 512 # Default to 512 if no arrays
-#     vector_column_names = [f'title_{i}' for i in range(num_elements)]
+popular_ids = label_info[label_info["target"] == 1]["video_id"]
+num_of_popular = len(popular_ids)
+unpopular_ids = label_info[label_info["target"] == 0]["video_id"]
+sampled_unpopular_ids = unpopular_ids.sample(num_of_popular * 2, random_state=86)
 
-#     # Construct the DataFrame
-#     df = pd.DataFrame(vector_arrays, index=keys, columns=vector_column_names)
+ids_to_keep = pd.concat([popular_ids, sampled_unpopular_ids])
+resampled_tabular_features = tabular_features[tabular_features["video_id"].isin(ids_to_keep)]
+resampled_tabular_features_no_vlc = tabular_features_no_vlc[tabular_features_no_vlc["video_id"].isin(ids_to_keep)]
 
-#     # Reset the index to make the keys a regular column
-#     df = df.reset_index()
-#     df = df.rename(columns={'index': 'video_id'})
-#     # Add label
-#     df["target"] = 1
+resampled_tabular_features.to_pickle(new_dataset_dir/"tabular_features_vlc.pkl")
+resampled_tabular_features_no_vlc.to_pickle(new_dataset_dir/"tabular_features_no_vlc.pkl")
+features = {}
+features[0] = tabular_features
+features[1] = tabular_features_no_vlc
+with np.load(DATA_PATH/"dataset/popular_title_features.npz") as data:
+    keys = data.files
+    vector_arrays = [data[key] for key in keys]
+    num_elements = vector_arrays[0].shape[0] if vector_arrays else 512 # Default to 512 if no arrays
+    vector_column_names = [f'title_{i}' for i in range(num_elements)]
+
+    # Construct the DataFrame
+    df = pd.DataFrame(vector_arrays, index=keys, columns=vector_column_names)
+
+    # Reset the index to make the keys a regular column
+    df = df.reset_index()
+    df = df.rename(columns={'index': 'video_id'})
+    # Add label
+    df["target"] = 1
     
-#     popular_title_features = df
+    popular_title_features = df
 
-# with np.load(DATA_PATH/"dataset/unpopular_title_features.npz") as data:
-#     keys = data.files
-#     vector_arrays = [data[key] for key in keys]
-#     num_elements = vector_arrays[0].shape[0] if vector_arrays else 512 # Default to 512 if no arrays
-#     vector_column_names = [f'title_{i}' for i in range(num_elements)]
+with np.load(DATA_PATH/"dataset/unpopular_title_features.npz") as data:
+    keys = sampled_unpopular_ids
+    vector_arrays = [data[key] for key in keys]
+    num_elements = vector_arrays[0].shape[0] if vector_arrays else 512 # Default to 512 if no arrays
+    vector_column_names = [f'title_{i}' for i in range(num_elements)]
 
-#     # Construct the DataFrame
-#     df = pd.DataFrame(vector_arrays, index=keys, columns=vector_column_names)
+    # Construct the DataFrame
+    df = pd.DataFrame(vector_arrays, index=keys, columns=vector_column_names)
 
-#     # Reset the index to make the keys a regular column
-#     df = df.reset_index()
-#     df = df.rename(columns={'index': 'video_id'})
-#     # Add label
-#     df["target"] = 0
+    # Reset the index to make the keys a regular column
+    df = df.reset_index()
+    df = df.rename(columns={'index': 'video_id'})
+    # Add label
+    df["target"] = 0
     
-#     unpopular_title_features = df
+    unpopular_title_features = df
 
-# with np.load(DATA_PATH/"dataset/popular_thumbnail_features.npz") as data:
-#     keys = data.files
-#     vector_arrays = [data[key] for key in keys]
-#     num_elements = vector_arrays[0].shape[0] if vector_arrays else 512 # Default to 512 if no arrays
-#     vector_column_names = [f'thumbnail_{i}' for i in range(num_elements)]
-#     # Construct the DataFrame
-#     df = pd.DataFrame(vector_arrays, index=keys, columns=vector_column_names)
+with np.load(DATA_PATH/"dataset/popular_thumbnail_features.npz") as data:
+    keys = data.files
+    vector_arrays = [data[key] for key in keys]
+    num_elements = vector_arrays[0].shape[0] if vector_arrays else 512 # Default to 512 if no arrays
+    vector_column_names = [f'thumbnail_{i}' for i in range(num_elements)]
+    # Construct the DataFrame
+    df = pd.DataFrame(vector_arrays, index=keys, columns=vector_column_names)
 
-#     # Reset the index to make the keys a regular column
-#     df = df.reset_index()
-#     df = df.rename(columns={'index': 'video_id'})
-#     # Add label
-#     df["target"] = 1
+    # Reset the index to make the keys a regular column
+    df = df.reset_index()
+    df = df.rename(columns={'index': 'video_id'})
+    # Add label
+    df["target"] = 1
 
-#     popular_thumbnail_features = df
+    popular_thumbnail_features = df
 
-# with np.load(DATA_PATH/"dataset/unpopular_thumbnail_features.npz") as data:
-#     keys = data.files
-#     vector_arrays = [data[key] for key in keys]
-#     num_elements = vector_arrays[0].shape[0] if vector_arrays else 512 # Default to 512 if no arrays
-#     vector_column_names = [f'thumbnail_{i}' for i in range(num_elements)]
-#     # Construct the DataFrame
-#     df = pd.DataFrame(vector_arrays, index=keys, columns=vector_column_names)
+with np.load(DATA_PATH/"dataset/unpopular_thumbnail_features.npz") as data:
+    keys = sampled_unpopular_ids
+    vector_arrays = [data.get(key) for key in keys]
+    num_elements = vector_arrays[0].shape[0] if vector_arrays else 512 # Default to 512 if no arrays
+    vector_column_names = [f'thumbnail_{i}' for i in range(num_elements)]
+    # Construct the DataFrame
+    df = pd.DataFrame(vector_arrays, index=keys, columns=vector_column_names)
 
-#     # Reset the index to make the keys a regular column
-#     df = df.reset_index()
-#     df = df.rename(columns={'index': 'video_id'})
-#     # Add label
-#     df["target"] = 0
+    # Reset the index to make the keys a regular column
+    df = df.reset_index()
+    df = df.rename(columns={'index': 'video_id'})
+    # Add label
+    df["target"] = 0
     
-#     unpopular_thumbnail_features = df
+    unpopular_thumbnail_features = df
 
-# title_features = pd.concat([popular_title_features, unpopular_title_features])
-# title_features.to_pickle(DATA_PATH/"dataset/title_features.pkl")
-# thumbnail_features = pd.concat([popular_thumbnail_features, unpopular_thumbnail_features])
-# thumbnail_features.to_pickle(DATA_PATH/"dataset/thumbnail_features.pkl")
-# features[2] = title_features
-# features[3] = thumbnail_features
+title_features = pd.concat([popular_title_features, unpopular_title_features])
+title_features.to_pickle(new_dataset_dir / "title_features.pkl")
+thumbnail_features = pd.concat([popular_thumbnail_features, unpopular_thumbnail_features])
+thumbnail_features.to_pickle(new_dataset_dir / "thumbnail_features.pkl")
+features[2] = title_features
+features[3] = thumbnail_features
+
+#%%
+use.create_directory_if_not_exists("../Temp")
+popular_ids.to_pickle(Path("../Temp") / "popular_ids.pkl")
+sampled_unpopular_ids.to_pickle(Path("../Temp") / "unpopular_ids.pkl")
+
+import json
+import pickle
+with open(DATA_PATH / "dataset/popular_l1_norms.json") as rf:
+    popular_l1_norms = json.load(rf)
+
+with open(DATA_PATH / "dataset/unpopular_l1_norms.pkl", "rb") as rf:
+    unpopular_l1_norms = pickle.load(rf)
+
+with open(DATA_PATH / "dataset/unpopular_video_features.pkl", "rb") as rf:
+    unpopular_video_features = pickle.load(rf)
+
+with open(Path("../Temp") / "popular_l1_norms.pkl", "wb") as wf:
+    pickle.dump(popular_l1_norms, wf)
+
+with open(Path("../Temp") / "unpopular_l1_norms.pkl", "wb") as wf:
+    pickle.dump(unpopular_l1_norms, wf)
+
+with open(Path("../Temp") / "unpopular_video_features.pkl", "wb") as wf:
+    pickle.dump(unpopular_video_features, wf)
+
+
+
+ids_to_query = []
+for vid_id in sampled_unpopular_ids:
+    if vid_id not in unpopular_video_features.keys():
+        ids_to_query.append(vid_id)
+len(ids_to_query)
+
 #%%
 #### dataset name
 # 0: tabular_with_vlc
