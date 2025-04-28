@@ -49,7 +49,9 @@ print(X.shape, y.shape)
 
 # Paths to save everything
 models_dir = Path("../Models")
+use.create_directory_if_not_exists(models_dir)
 report_dir = Path("../LOG")
+use.create_directory_if_not_exists(report_dir)
 
 
 # Define the components
