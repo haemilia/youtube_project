@@ -1,3 +1,4 @@
+#%%
 import itertools
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
@@ -11,22 +12,21 @@ from sklearn.model_selection import RandomizedSearchCV, StratifiedKFold
 from sklearn.metrics import accuracy_score, f1_score
 import pickle
 import numpy as np
+from pathlib import Path
+import argparse
+import sys
 
-# Placeholder for the Keras model builder function
-def build_fc_nn(input_shape):
-    # You will replace this with your actual Keras model definition
-    from tensorflow import keras
-    from keras import layers
-    model = keras.Sequential([
-        layers.Input(shape=input_shape),
-        layers.Dense(64, activation='relu'),
-        layers.Dense(1, activation='sigmoid') # Assuming binary classification for now
-    ])
-    model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
-    return model
+# Get dataset_name from CLI if provided, otherwise use input()
+if len(sys.argv) > 1:
+    # Set up argument parser
+    parser = argparse.ArgumentParser(description="Evaluate machine learning pipelines for a given dataset.")
+    parser.add_argument("dataset_name", help="Name of the dataset to use (0:w/ vlc, 1:w/o vlc, 2: title, 3: thumbnail, 4: l1, 5: video)")
+    args = parser.parse_args()
+    dataset_name = args.dataset_name
+else:
+    dataset_name = input("Enter the dataset name (0:w/ vlc, 1:w/o vlc, 2: title, 3: thumbnail, 4: l1, 5: video): ")
 
 # Read data
-dataset_name = ""
 #### dataset name
 # 0: tabular_with_vlc
 # 1: tabular_without_vlc
@@ -34,17 +34,28 @@ dataset_name = ""
 # 3: thumbnail
 # 4: video_l1
 # 5: video
-import dataset
-X, y = dataset.construct_final_dataset(dataset_name)
+from dataset import dataset_construction
+import useful as use
+DATA_PATH = Path(use.get_priv()["DATA_PATH"])
+locations = {
+    "tabular_features_vlc": DATA_PATH / "dataset/tabular_features_vlc.pkl",
+    "tabular_features_no_vlc": DATA_PATH / "dataset/tabular_features_no_vlc.pkl",
+    "title_features": DATA_PATH/"dataset/title_features.pkl",
+    "thumbnail_features": DATA_PATH/"dataset/thumbnail_features.pkl",
+}
+X, y = dataset_construction(dataset_name, locations)
+print("Shape of dataset:")
+print(X.shape, y.shape)
 
-# Wrap the Keras model for scikit-learn compatibility
-from scikeras.wrappers import KerasClassifier
+# Paths to save everything
+models_dir = Path("../Models")
+report_dir = Path("../LOG")
+
 
 # Define the components
 scalers = [('NoScaler', None), ('MinMaxScaler', MinMaxScaler())]
 dimension_reducers = [('NoReducer', None), ('PCA', PCA()), ('LassoSelector', SelectFromModel(Lasso(max_iter=10000)))]
 classifiers = [
-    ('FC_NN', lambda: KerasClassifier(model=build_fc_nn, verbose=0)),
     ('RandomForest', RandomForestClassifier()),
     ('XGBoost', XGBClassifier(use_label_encoder=False, eval_metric='logloss'))
 ]
@@ -54,10 +65,8 @@ param_grids = {
     'PCA': {'n_components': np.arange(1, 10)}, # Example range, adjust as needed
     'LassoSelector': {'threshold': np.logspace(-4, 0, 10)}, # Example range
     'RandomForest': {'n_estimators': [50, 100, 200], 'max_depth': [None, 10, 20]},
-    'XGBoost': {'n_estimators': [50, 100, 200], 'max_depth': [3, 5, 7], 'learning_rate': [0.01, 0.1, 0.3]},
-    'FC_NN': {'model__epochs': [10, 20], 'model__batch_size': [32, 64]} # Keras wrapper uses 'model__' prefix
+    'XGBoost': {'n_estimators': [50, 100, 200], 'max_depth': [3, 5, 7], 'learning_rate': [0.01, 0.1, 0.3]}
 }
-
 # Generate all possible pipeline combinations
 pipelines = list(itertools.product(scalers, dimension_reducers, classifiers))
 
@@ -127,7 +136,7 @@ for scaler, reducer, classifier in pipelines:
 
         # Save the best model for this pipeline structure
         filename = f"best_model_{scaler[0]}_{reducer[0]}_{classifier[0]}_{dataset_name}.pkl"
-        with open(filename, 'wb') as file:
+        with open(models_dir / filename, 'wb') as file:
             pickle.dump(best_model, file)
         print(f"  Best model saved as {filename}")
 
@@ -145,7 +154,8 @@ results_df.to_pickle(results_df_path)
 print(f"\nBest pipeline scores saved to {results_df_path}")
 
 # Generate the markdown report
-markdown_report = "# Best Performance by Validation Accuracy\n"
+markdown_report = f"# Model Selection Report - dataset_{dataset_name}"
+markdown_report += "# Best Performance by Validation Accuracy\n"
 best_accuracy = results_df.sort_values(by='Best Validation Accuracy', ascending=False).iloc[0]
 markdown_report += f"- Pipeline Name: Pipeline_{best_accuracy.name}\n"
 markdown_report += f"- {best_accuracy['Scaler']} - {best_accuracy['Dimension Reducer']} - {best_accuracy['Classifier']}\n"
@@ -194,7 +204,7 @@ for index, row in results_df.iterrows():
 
 # Save the report to a markdown file
 report_path = f"{dataset_name}_pipeline_comparison_report.md"
-with open(report_path, 'w') as f:
+with open(report_dir / report_path, 'w') as f:
     f.write(markdown_report)
 
 print(f"\nMarkdown report saved to {report_path}")

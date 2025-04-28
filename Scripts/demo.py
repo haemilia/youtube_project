@@ -118,7 +118,7 @@ def get_tabular_video_info(video_id:str, youtube) -> pd.DataFrame:
         row["title"] = item["snippet"].get("title")
         row["description"] = item["snippet"].get("description")
         row["channel_title"] = item["snippet"].get("channelTitle")
-        row["thumbnail_url"] = item["snippet"].get("thumbnails", {}).get("default", {}).get("url")
+        row["thumbnail_url"] = item["snippet"].get("thumbnails", {}).get("high", {}).get("url")
         row["tags"] = item["snippet"].get("tags")
         row["default_language"] = item["snippet"].get("defaultLanguage")
         row["default_audio_language"] = item["snippet"].get("defaultAudioLanguage")

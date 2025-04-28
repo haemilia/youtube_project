@@ -547,96 +547,101 @@ def dataset_construction(instruction:str|list, locations:dict):
 
     # Merge according to instruction
     resulting_df = merge_datasets(features, instruction)
-    return resulting_df
+
+    # Separate X and y
+    X_columns = resulting_df.columns.difference(["target"])
+    result_X = resulting_df[X_columns].drop("video_id", axis=1).values
+    result_y = resulting_df["target"].values
+    return result_X, result_y
 
 #%%
-import useful as use
-import pandas as pd
-import numpy as np
-from pathlib import Path
+# import useful as use
+# import pandas as pd
+# import numpy as np
+# from pathlib import Path
 
-priv = use.get_priv()
-DATA_PATH = Path(priv["DATA_PATH"])
+# priv = use.get_priv()
+# DATA_PATH = Path(priv["DATA_PATH"])
 
-tabular_features = pd.read_pickle(DATA_PATH / "dataset/tabular_features_vlc.pkl")
-tabular_features_no_vlc = pd.read_pickle(DATA_PATH/"dataset/tabular_features_no_vlc.pkl")
-label_info = pd.read_pickle(DATA_PATH/"dataset/label_info.pkl")
+# tabular_features = pd.read_pickle(DATA_PATH / "dataset/tabular_features_vlc.pkl")
+# tabular_features_no_vlc = pd.read_pickle(DATA_PATH/"dataset/tabular_features_no_vlc.pkl")
+# label_info = pd.read_pickle(DATA_PATH/"dataset/label_info.pkl")
 
-features = {}
-features[0] = tabular_features
-features[1] = tabular_features_no_vlc
-with np.load(DATA_PATH/"dataset/popular_title_features.npz") as data:
-    keys = data.files
-    vector_arrays = [data[key] for key in keys]
-    num_elements = vector_arrays[0].shape[0] if vector_arrays else 512 # Default to 512 if no arrays
-    vector_column_names = [f'title_{i}' for i in range(num_elements)]
+# features = {}
+# features[0] = tabular_features
+# features[1] = tabular_features_no_vlc
+# with np.load(DATA_PATH/"dataset/popular_title_features.npz") as data:
+#     keys = data.files
+#     vector_arrays = [data[key] for key in keys]
+#     num_elements = vector_arrays[0].shape[0] if vector_arrays else 512 # Default to 512 if no arrays
+#     vector_column_names = [f'title_{i}' for i in range(num_elements)]
 
-    # Construct the DataFrame
-    df = pd.DataFrame(vector_arrays, index=keys, columns=vector_column_names)
+#     # Construct the DataFrame
+#     df = pd.DataFrame(vector_arrays, index=keys, columns=vector_column_names)
 
-    # Reset the index to make the keys a regular column
-    df = df.reset_index()
-    df = df.rename(columns={'index': 'video_id'})
-    # Add label
-    df["target"] = 1
+#     # Reset the index to make the keys a regular column
+#     df = df.reset_index()
+#     df = df.rename(columns={'index': 'video_id'})
+#     # Add label
+#     df["target"] = 1
     
-    popular_title_features = df
+#     popular_title_features = df
 
-with np.load(DATA_PATH/"dataset/unpopular_title_features.npz") as data:
-    keys = data.files
-    vector_arrays = [data[key] for key in keys]
-    num_elements = vector_arrays[0].shape[0] if vector_arrays else 512 # Default to 512 if no arrays
-    vector_column_names = [f'title_{i}' for i in range(num_elements)]
+# with np.load(DATA_PATH/"dataset/unpopular_title_features.npz") as data:
+#     keys = data.files
+#     vector_arrays = [data[key] for key in keys]
+#     num_elements = vector_arrays[0].shape[0] if vector_arrays else 512 # Default to 512 if no arrays
+#     vector_column_names = [f'title_{i}' for i in range(num_elements)]
 
-    # Construct the DataFrame
-    df = pd.DataFrame(vector_arrays, index=keys, columns=vector_column_names)
+#     # Construct the DataFrame
+#     df = pd.DataFrame(vector_arrays, index=keys, columns=vector_column_names)
 
-    # Reset the index to make the keys a regular column
-    df = df.reset_index()
-    df = df.rename(columns={'index': 'video_id'})
-    # Add label
-    df["target"] = 0
+#     # Reset the index to make the keys a regular column
+#     df = df.reset_index()
+#     df = df.rename(columns={'index': 'video_id'})
+#     # Add label
+#     df["target"] = 0
     
-    unpopular_title_features = df
+#     unpopular_title_features = df
 
-with np.load(DATA_PATH/"dataset/popular_thumbnail_features.npz") as data:
-    keys = data.files
-    vector_arrays = [data[key] for key in keys]
-    num_elements = vector_arrays[0].shape[0] if vector_arrays else 512 # Default to 512 if no arrays
-    vector_column_names = [f'thumbnail_{i}' for i in range(num_elements)]
-    # Construct the DataFrame
-    df = pd.DataFrame(vector_arrays, index=keys, columns=vector_column_names)
+# with np.load(DATA_PATH/"dataset/popular_thumbnail_features.npz") as data:
+#     keys = data.files
+#     vector_arrays = [data[key] for key in keys]
+#     num_elements = vector_arrays[0].shape[0] if vector_arrays else 512 # Default to 512 if no arrays
+#     vector_column_names = [f'thumbnail_{i}' for i in range(num_elements)]
+#     # Construct the DataFrame
+#     df = pd.DataFrame(vector_arrays, index=keys, columns=vector_column_names)
 
-    # Reset the index to make the keys a regular column
-    df = df.reset_index()
-    df = df.rename(columns={'index': 'video_id'})
-    # Add label
-    df["target"] = 1
+#     # Reset the index to make the keys a regular column
+#     df = df.reset_index()
+#     df = df.rename(columns={'index': 'video_id'})
+#     # Add label
+#     df["target"] = 1
 
-    popular_thumbnail_features = df
+#     popular_thumbnail_features = df
 
-with np.load(DATA_PATH/"dataset/unpopular_thumbnail_features.npz") as data:
-    keys = data.files
-    vector_arrays = [data[key] for key in keys]
-    num_elements = vector_arrays[0].shape[0] if vector_arrays else 512 # Default to 512 if no arrays
-    vector_column_names = [f'thumbnail_{i}' for i in range(num_elements)]
-    # Construct the DataFrame
-    df = pd.DataFrame(vector_arrays, index=keys, columns=vector_column_names)
+# with np.load(DATA_PATH/"dataset/unpopular_thumbnail_features.npz") as data:
+#     keys = data.files
+#     vector_arrays = [data[key] for key in keys]
+#     num_elements = vector_arrays[0].shape[0] if vector_arrays else 512 # Default to 512 if no arrays
+#     vector_column_names = [f'thumbnail_{i}' for i in range(num_elements)]
+#     # Construct the DataFrame
+#     df = pd.DataFrame(vector_arrays, index=keys, columns=vector_column_names)
 
-    # Reset the index to make the keys a regular column
-    df = df.reset_index()
-    df = df.rename(columns={'index': 'video_id'})
-    # Add label
-    df["target"] = 0
+#     # Reset the index to make the keys a regular column
+#     df = df.reset_index()
+#     df = df.rename(columns={'index': 'video_id'})
+#     # Add label
+#     df["target"] = 0
     
-    unpopular_thumbnail_features = df
+#     unpopular_thumbnail_features = df
 
-title_features = pd.concat([popular_title_features, unpopular_title_features])
-title_features.to_pickle(DATA_PATH/"dataset/title_features.pkl")
-thumbnail_features = pd.concat([popular_thumbnail_features, unpopular_thumbnail_features])
-thumbnail_features.to_pickle(DATA_PATH/"dataset/thumbnail_features.pkl")
-features[2] = title_features
-features[3] = thumbnail_features
+# title_features = pd.concat([popular_title_features, unpopular_title_features])
+# title_features.to_pickle(DATA_PATH/"dataset/title_features.pkl")
+# thumbnail_features = pd.concat([popular_thumbnail_features, unpopular_thumbnail_features])
+# thumbnail_features.to_pickle(DATA_PATH/"dataset/thumbnail_features.pkl")
+# features[2] = title_features
+# features[3] = thumbnail_features
 #%%
 #### dataset name
 # 0: tabular_with_vlc
@@ -645,11 +650,15 @@ features[3] = thumbnail_features
 # 3: thumbnail
 # 4: video_l1
 # 5: video
-locations = {
-    "tabular_features_vlc": DATA_PATH / "dataset/tabular_features_vlc.pkl",
-    "tabular_features_no_vlc": DATA_PATH / "dataset/tabular_features_no_vlc.pkl",
-    "title_features": DATA_PATH/"dataset/title_features.pkl",
-    "thumbnail_features": DATA_PATH/"dataset/thumbnail_features.pkl",
-}
-result_dataset = dataset_construction("123", locations)
-display(result_dataset)
+# locations = {
+#     "tabular_features_vlc": DATA_PATH / "dataset/tabular_features_vlc.pkl",
+#     "tabular_features_no_vlc": DATA_PATH / "dataset/tabular_features_no_vlc.pkl",
+#     "title_features": DATA_PATH/"dataset/title_features.pkl",
+#     "thumbnail_features": DATA_PATH/"dataset/thumbnail_features.pkl",
+# }
+# result_dataset = dataset_construction("123", locations)
+# X_columns = result_dataset.columns.difference(["target"])
+# result_X = result_dataset[X_columns]
+# result_y = result_dataset["target"]
+
+
