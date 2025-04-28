@@ -7,6 +7,7 @@ from sklearn.feature_selection import SelectFromModel
 from sklearn.linear_model import Lasso
 from sklearn.ensemble import RandomForestClassifier
 from xgboost import XGBClassifier
+from lightgbm import LGBMClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.model_selection import RandomizedSearchCV, StratifiedKFold
 from sklearn.metrics import accuracy_score, f1_score
@@ -15,7 +16,9 @@ import numpy as np
 from pathlib import Path
 import argparse
 import sys
+from datetime import datetime
 
+print(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 # Get dataset_name from CLI if provided, otherwise use input()
 if len(sys.argv) > 1:
     # Set up argument parser
@@ -54,20 +57,21 @@ report_dir = Path("../LOG")
 use.create_directory_if_not_exists(report_dir)
 
 
-# Define the components
+# Define the pipeline components
 scalers = [('NoScaler', None), ('MinMaxScaler', MinMaxScaler())]
-dimension_reducers = [('NoReducer', None), ('PCA', PCA()), ('LassoSelector', SelectFromModel(Lasso(max_iter=10000)))]
+dimension_reducers = [('NoReducer', None), ('PCA', PCA(random_state=42))] # Added random_state for reproducibility
 classifiers = [
-    ('RandomForest', RandomForestClassifier()),
-    ('XGBoost', XGBClassifier(use_label_encoder=False, eval_metric='logloss'))
+    ('RandomForest', RandomForestClassifier(random_state=42)), # Added random_state for reproducibility
+    ('XGBoost', XGBClassifier(use_label_encoder=False, eval_metric='logloss', random_state=42)), # Added random_state for reproducibility
+    ('LightGBM', LGBMClassifier(random_state=42)) # Added LightGBM with random_state
 ]
 
 # Define hyperparameter grids for RandomizedSearchCV
 param_grids = {
-    'PCA': {'n_components': np.arange(1, 10)}, # Example range, adjust as needed
-    'LassoSelector': {'threshold': np.logspace(-4, 0, 10)}, # Example range
-    'RandomForest': {'n_estimators': [50, 100, 200], 'max_depth': [None, 10, 20]},
-    'XGBoost': {'n_estimators': [50, 100, 200], 'max_depth': [3, 5, 7], 'learning_rate': [0.01, 0.1, 0.3]}
+    'PCA': {'n_components': np.arange(10, min(X.shape[1], 501), 50)}, # Wider range for PCA
+    'RandomForest': {'n_estimators': [50, 100, 200], 'max_depth': [None, 10, 20], 'min_samples_split': [2, 5, 10], 'min_samples_leaf': [1, 3, 5]},
+    'XGBoost': {'n_estimators': [50, 100, 200], 'max_depth': [3, 5, 7], 'learning_rate': [0.01, 0.1, 0.3], 'subsample': [0.8, 1.0], 'colsample_bytree': [0.8, 1.0]},
+    'LightGBM': {'n_estimators': [50, 100, 200], 'max_depth': [-1, 5, 10], 'learning_rate': [0.01, 0.1, 0.3], 'num_leaves': [31, 50, 100]}
 }
 # Generate all possible pipeline combinations
 pipelines = list(itertools.product(scalers, dimension_reducers, classifiers))
@@ -80,6 +84,7 @@ pipeline_number = 0
 # Create StratifiedKFold for cross-validation
 cv = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
 
+print(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 print("Starting pipeline evaluation...")
 
 
@@ -87,6 +92,7 @@ print("Starting pipeline evaluation...")
 for scaler, reducer, classifier in pipelines:
     pipeline_number += 1
     pipeline_name = f"Pipeline_{pipeline_number}"
+    print(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
     print(f"\nEvaluating {pipeline_name}: {scaler[0]} - {reducer[0]} - {classifier[0]}")
 
     steps = []
@@ -199,10 +205,10 @@ for index, row in results_df.iterrows():
     markdown_report += "## Best Performance\n"
     markdown_report += "- Train\n"
     markdown_report += f"- Accuracy: {row['Best Train Accuracy']:.4f}\n"
-    markdown_report += f"- F1-Score: ${row['Best Train F1']:.4f}$\n"
+    markdown_report += f"- F1-Score: {row['Best Train F1']:.4f}\n"
     markdown_report += "- Validation\n"
     markdown_report += f"- Accuracy: {row['Best Validation Accuracy']:.4f}\n"
-    markdown_report += f"- F1-Score: ${row['Best Validation F1']:.4f}$\n"
+    markdown_report += f"- F1-Score: {row['Best Validation F1']:.4f}\n"
 
 # Save the report to a markdown file
 report_path = f"{dataset_name}_pipeline_comparison_report.md"
