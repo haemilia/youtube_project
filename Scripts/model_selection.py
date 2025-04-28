@@ -78,6 +78,20 @@ param_grids = {
 # Generate all possible pipeline combinations
 pipelines = list(itertools.product(scalers, dimension_reducers, undersamplers, classifiers))
 
+# Generate all possible pipeline combinations, ensuring NoScaler for RandomForest
+pipeline_set = set()
+for reducer in dimension_reducers:
+    for undersampler in undersamplers:
+        for classifier in classifiers:
+            if classifier[0] == 'RandomForest':
+                pipeline_set.add((('NoScaler', None), reducer, undersampler, classifier))
+            else:
+                for scaler in scalers:
+                    pipeline_set.add((scaler, reducer, undersampler, classifier))
+
+# Convert the set of unique pipelines back to a list
+pipelines = list(pipeline_set)
+
 # Store results
 results = []
 best_models = {}
