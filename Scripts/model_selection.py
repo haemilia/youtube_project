@@ -1,4 +1,3 @@
-#%%
 import itertools
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler
@@ -17,6 +16,7 @@ from pathlib import Path
 import argparse
 import sys
 from datetime import datetime
+from imblearn.under_sampling import RandomUnderSampler  # Import RandomUnderSampler
 
 print(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 # Get dataset_name from CLI if provided, otherwise use input()
@@ -59,22 +59,24 @@ use.create_directory_if_not_exists(report_dir)
 
 # Define the pipeline components
 scalers = [('NoScaler', None), ('MinMaxScaler', MinMaxScaler())]
-dimension_reducers = [('NoReducer', None), ('PCA', PCA(random_state=42))] # Added random_state for reproducibility
+dimension_reducers = [('NoReducer', None), ('PCA', PCA(random_state=86))] # Added random_state for reproducibility
+undersamplers = [('NoUnderSampler', None), ('RandomUnderSampler', RandomUnderSampler(random_state=86))] # Added RandomUnderSampler
 classifiers = [
-    ('RandomForest', RandomForestClassifier(random_state=42)), # Added random_state for reproducibility
-    ('XGBoost', XGBClassifier(use_label_encoder=False, eval_metric='logloss', random_state=42)), # Added random_state for reproducibility
-    ('LightGBM', LGBMClassifier(random_state=42)) # Added LightGBM with random_state
+    ('RandomForest', RandomForestClassifier(random_state=86)), # Added random_state for reproducibility
+    ('XGBoost', XGBClassifier(use_label_encoder=False, eval_metric='logloss', random_state=86)), # Added random_state for reproducibility
+    ('LightGBM', LGBMClassifier(random_state=86)) # Added LightGBM with random_state
 ]
 
 # Define hyperparameter grids for RandomizedSearchCV
 param_grids = {
     'PCA': {'n_components': np.arange(10, min(X.shape[1], 501), 50)}, # Wider range for PCA
+    'RandomUnderSampler': {'sampling_strategy': ['auto', 0.5, 0.7, 1.0]}, # Hyperparameters for RandomUnderSampler
     'RandomForest': {'n_estimators': [50, 100, 200], 'max_depth': [None, 10, 20], 'min_samples_split': [2, 5, 10], 'min_samples_leaf': [1, 3, 5]},
     'XGBoost': {'n_estimators': [50, 100, 200], 'max_depth': [3, 5, 7], 'learning_rate': [0.01, 0.1, 0.3], 'subsample': [0.8, 1.0], 'colsample_bytree': [0.8, 1.0]},
     'LightGBM': {'n_estimators': [50, 100, 200], 'max_depth': [-1, 5, 10], 'learning_rate': [0.01, 0.1, 0.3], 'num_leaves': [31, 50, 100]}
 }
 # Generate all possible pipeline combinations
-pipelines = list(itertools.product(scalers, dimension_reducers, classifiers))
+pipelines = list(itertools.product(scalers, dimension_reducers, undersamplers, classifiers))
 
 # Store results
 results = []
@@ -82,31 +84,27 @@ best_models = {}
 pipeline_number = 0
 
 # Create StratifiedKFold for cross-validation
-cv = StratifiedKFold(n_splits=3, shuffle=True, random_state=42)
+cv = StratifiedKFold(n_splits=3, shuffle=True, random_state=86)
 
 print(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 print("Starting pipeline evaluation...")
 
 
 
-for scaler, reducer, classifier in pipelines:
+for scaler, reducer, undersampler, classifier in pipelines:
     pipeline_number += 1
     pipeline_name = f"Pipeline_{pipeline_number}"
     print(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-    print(f"\nEvaluating {pipeline_name}: {scaler[0]} - {reducer[0]} - {classifier[0]}")
+    print(f"\nEvaluating {pipeline_name}: {scaler[0]} - {reducer[0]} - {undersampler[0]} - {classifier[0]}")
 
     steps = []
     if scaler[1]:
         steps.append(scaler)
     if reducer[1]:
         steps.append(reducer)
-    # Handle the KerasClassifier separately for hyperparameter grid access
-    if classifier[0] == 'FC_NN':
-        steps.append(('FC_NN', classifier[1]()))
-        param_grid = param_grids.get(classifier[0], {})
-    else:
-        steps.append(classifier)
-        param_grid = param_grids.get(classifier[0], {})
+    if undersampler[1]:
+        steps.append(undersampler)
+    steps.append(classifier)
 
     pipeline = Pipeline(steps)
 
@@ -133,6 +131,7 @@ for scaler, reducer, classifier in pipelines:
             'Pipeline Number': pipeline_number,
             'Scaler': scaler[0],
             'Dimension Reducer': reducer[0],
+            'UnderSampler': undersampler[0],
             'Classifier': classifier[0],
             'Best Train Accuracy': train_accuracy,
             'Best Validation Accuracy': val_accuracy,
@@ -143,7 +142,7 @@ for scaler, reducer, classifier in pipelines:
         best_models[pipeline_name] = best_model
 
         # Save the best model for this pipeline structure
-        filename = f"best_model_{scaler[0]}_{reducer[0]}_{classifier[0]}_{dataset_name}.pkl"
+        filename = f"best_model_{scaler[0]}_{reducer[0]}_{undersampler[0]}_{classifier[0]}_{dataset_name}.pkl"
         with open(models_dir / filename, 'wb') as file:
             pickle.dump(best_model, file)
         print(f"  Best model saved as {filename}")
@@ -157,23 +156,23 @@ print("\nDataFrame of best scores:")
 print(results_df)
 
 # Save the DataFrame to pickle
-results_df_path = f"best_pipeline_scores{dataset_name}.pkl"
+results_df_path = f"best_pipeline_scores_{dataset_name}.pkl"
 results_df.to_pickle(results_df_path)
 print(f"\nBest pipeline scores saved to {results_df_path}")
 
 # Generate the markdown report
-markdown_report = f"# Model Selection Report - dataset_{dataset_name}"
+markdown_report = f"# Model Selection Report - dataset_{dataset_name}\n"
 markdown_report += "# Best Performance by Validation Accuracy\n"
 best_accuracy = results_df.sort_values(by='Best Validation Accuracy', ascending=False).iloc[0]
 markdown_report += f"- Pipeline Name: Pipeline_{best_accuracy.name}\n"
-markdown_report += f"- {best_accuracy['Scaler']} - {best_accuracy['Dimension Reducer']} - {best_accuracy['Classifier']}\n"
+markdown_report += f"- {best_accuracy['Scaler']} - {best_accuracy['Dimension Reducer']} - {best_accuracy['UnderSampler']} - {best_accuracy['Classifier']}\n"
 markdown_report += f"- Validation Accuracy: {best_accuracy['Best Validation Accuracy']:.4f}\n"
 markdown_report += f"- Validation F1-Score: {best_accuracy['Best Validation F1']:.4f}\n"
 
 markdown_report += "\n# Best Performance by Validation F1-Score\n"
 best_f1 = results_df.sort_values(by='Best Validation F1', ascending=False).iloc[0]
 markdown_report += f"- Pipeline Name: Pipeline_{best_f1.name}\n"
-markdown_report += f"- {best_f1['Scaler']} - {best_f1['Dimension Reducer']} - {best_f1['Classifier']}\n"
+markdown_report += f"- {best_f1['Scaler']} - {best_f1['Dimension Reducer']} - {best_f1['UnderSampler']} - {best_f1['Classifier']}\n"
 markdown_report += f"- Validation Accuracy: {best_f1['Best Validation Accuracy']:.4f}\n"
 markdown_report += f"- Validation F1-Score: {best_f1['Best Validation F1']:.4f}\n"
 
@@ -198,6 +197,7 @@ for index, row in results_df.iterrows():
     markdown_report += "## Pipeline Composition\n"
     markdown_report += f"- Scaler: {row['Scaler']}\n"
     markdown_report += f"- Dimension Reduction: {row['Dimension Reducer']}\n"
+    markdown_report += f"- UnderSampler: {row['UnderSampler']}\n"
     markdown_report += f"- Classifier: {row['Classifier']}\n"
     markdown_report += "## Hyperparameters\n"
     for key, value in row['Best Hyperparameters'].items():
