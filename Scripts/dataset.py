@@ -853,4 +853,3 @@ unpopular_xclip_df = df
 
 video_xclip_features = pd.concat([popular_xclip_df, unpopular_xclip_df])
 video_xclip_features.to_pickle(dataset_dir / "video_xclip_features.pkl")
-display(video_xclip_features)
