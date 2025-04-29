@@ -1,3 +1,5 @@
+################# Needs to be fixed
+#%%
 from pathlib import Path
 import useful as use
 import pandas as pd
@@ -41,6 +43,7 @@ else:
     xclip_features_dict = {}
     l1_features_dict = {}
     need_to_collect = []
+
     for vid_id in unpopular_ids:
         if (vid_id not in previous_attempt_l1.keys()) or (vid_id not in previous_attempt_xclip.keys()):
             need_to_collect.append(vid_id)
@@ -50,7 +53,7 @@ else:
     with open(temp_dir / "need_to_collect.pkl", "wb") as fw:
         pickle.dump(need_to_collect, fw)
 
-
+#%%
 # Prepare model and preprocessor
 device = fe.set_device()
 vid_processor = fe.load_video_processor(hf_token)
@@ -78,7 +81,7 @@ def check_for_stop_command():
             print("\n'q' pressed. Graceful stop requested. Finishing current video processing.")
             graceful_stop = True
         # msvcrt.putch(key.encode()) # Optionally echo the key press
-
+#%%
 # Define the full path to the log file on the shared drive
 # changed to local path for now
 shared_drive_path = Path("../LOG")
@@ -101,7 +104,7 @@ logger.addHandler(file_handler)
 stream_handler = logging.StreamHandler(sys.stdout)
 stream_handler.setFormatter(formatter)
 logger.addHandler(stream_handler)
-
+#%%
 ids_to_query = need_to_collect[start_from:]
 total = len(ids_to_query)
 
@@ -174,6 +177,7 @@ def write_termination_file_pathlib(reason, shared_drive_path_str):
 write_termination_file_pathlib(error_message, Path("../LOG"))
 
 #######################################################################################
+#%%
 log_message = "Updating dataset..."
 logger.info(log_message)
 
@@ -310,3 +314,4 @@ unpopular_xclip_df = df
 
 video_xclip_features = pd.concat([popular_xclip_df, unpopular_xclip_df])
 video_xclip_features.to_pickle(dataset_dir / "video_xclip_features.pkl")
+pd.merge(left=video_xclip_features, right=video_l1_features, how="inner", on=["video_id", "target"])["target"].unique()
