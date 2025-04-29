@@ -3,8 +3,10 @@ from pathlib import Path
 import pandas as pd
 import matplotlib.pyplot as plt
 import useful as use
+import json
 log_dir = Path("../LOG")
 viz_dir = Path("../Visualisations")
+model_dir = Path("../Models")
 use.create_directory_if_not_exists(viz_dir)
 score_dfs = {}
 for score_df_path in log_dir.glob("best_pipeline_scores_*.pkl"):
@@ -19,8 +21,12 @@ dataset_name_construction = {
     "4": "video"
 }
 
+best_models_acc = {}
+best_models_f1 = {}
+
 ## Graph with val accuracy on x axis, and val f1 on y axis
 # Identify unique classifiers and dimension reducers
+# Get best performing model name per dataset...
 for dataset_name, df in score_dfs.items():
     # Construct dataset full name
     full_name_list = [dataset_name_construction.get(cha, "") for cha in dataset_name]
@@ -73,3 +79,22 @@ for dataset_name, df in score_dfs.items():
     plt.tight_layout()
     plt.savefig(viz_dir / f"val_performance_plot_{dataset_name}")
     plt.show()
+
+    # Best performing models
+    best_acc = df.sort_values(by='Best Validation Accuracy', ascending=False).iloc[0]
+    scaler = best_acc["Scaler"]
+    reducer = best_acc["Dimension Reducer"]
+    classifier = best_acc["Classifier"]
+    model_name = f"best_model_{scaler}_{reducer}_{classifier}_{dataset_name}.pkl"
+    best_models_acc[dataset_name] = str(model_dir / model_name)
+    best_f1 = df.sort_values(by='Best Validation Accuracy', ascending=False).iloc[0]
+    scaler = best_f1["Scaler"]
+    reducer = best_f1["Dimension Reducer"]
+    classifier = best_f1["Classifier"]
+    model_name = f"best_model_{scaler}_{reducer}_{classifier}_{dataset_name}.pkl"
+    best_models_f1[dataset_name] = str(model_dir / model_name)
+
+with open(log_dir / "best_models_acc.json", "w") as fw:
+    json.dump(best_models_acc, fw)
+with open(log_dir / "best_models_f1.json", "w") as fw:
+    json.dump(best_models_f1, fw)
