@@ -243,7 +243,6 @@ def feature_from_video_with_l1(video_path:Path, processor: AutoProcessor, model:
             
         # Process the sampled frames
         inputs = processor(videos=xclip_sampled_frames, return_tensors="pt")
-        print("Shape of inputs['pixel_values']:", inputs['pixel_values'].shape)
 
         # Get the video features
         with torch.no_grad():
@@ -253,6 +252,7 @@ def feature_from_video_with_l1(video_path:Path, processor: AutoProcessor, model:
         # The output of get_video_features is likely a tensor of shape (batch_size, feature_dimension)
         # Since we are processing one video at a time, batch_size will be 1.
         # We want to extract the feature vector and convert it to a NumPy array.
+        print("Finished video feature extraction...")
         return xclip_features.squeeze(0).cpu().numpy(), l1_norms_sampled
 
     except Exception as e:
