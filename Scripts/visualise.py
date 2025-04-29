@@ -86,13 +86,13 @@ for dataset_name, df in score_dfs.items():
     reducer = best_acc["Dimension Reducer"]
     classifier = best_acc["Classifier"]
     model_name = f"best_model_{scaler}_{reducer}_{classifier}_{dataset_name}.pkl"
-    best_models_acc[dataset_name] = str(model_dir / model_name)
+    best_models_acc[dataset_name] = model_name
     best_f1 = df.sort_values(by='Best Validation Accuracy', ascending=False).iloc[0]
     scaler = best_f1["Scaler"]
     reducer = best_f1["Dimension Reducer"]
     classifier = best_f1["Classifier"]
     model_name = f"best_model_{scaler}_{reducer}_{classifier}_{dataset_name}.pkl"
-    best_models_f1[dataset_name] = str(model_dir / model_name)
+    best_models_f1[dataset_name] = model_name
 
 with open(log_dir / "best_models_acc.json", "w") as fw:
     json.dump(best_models_acc, fw)
